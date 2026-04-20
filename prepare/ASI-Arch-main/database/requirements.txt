@@ -1,0 +1,27 @@
+# MongoDB相关
+pymongo>=4.6.0
+
+# FastAPI和异步支持
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP请求
+requests>=2.31.0
+
+# 数值计算
+numpy>=1.24.0
+
+# 向量搜索
+faiss-cpu>=1.7.4
+
+# 类型提示
+typing-extensions>=4.8.0
+
+# 数据验证
+pydantic>=2.5.0
+
+# 日志
+python-json-logger>=2.0.0
+
+# CORS支持
+python-multipart>=0.0.6 

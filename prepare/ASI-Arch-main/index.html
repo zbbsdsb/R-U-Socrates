@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Research Data Gallery</title>
+    <!-- D3.js library for tree visualization -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Marked.js library for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- html2canvas library for screenshot download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF library for PDF download -->
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: #ffffff;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Top toolbar */
+        .top-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .menu-toggle:hover {
+            background-color: #f3f4f6;
+        }
+
+        .menu-icon {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background-color: #374151;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .menu-icon::before,
+        .menu-icon::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background-color: #374151;
+            transition: all 0.3s ease;
+        }
+
+        .menu-icon::before {
+            top: -6px;
+        }
+
+        .menu-icon::after {
+            bottom: -6px;
+        }
+
+        .logo {
+            margin-left: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background-color: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 80px 0 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+            z-index: 999;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-content {
+            padding: 0 16px;
+        }
+
+        .sidebar-section {
+            margin-bottom: 32px;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            padding: 0 12px;
+        }
+
+        .index-list {
+            list-style: none;
+        }
+
+        .index-item {
+            display: block;
+            padding: 8px 12px;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .index-item:hover {
+            background-color: #f3f4f6;
+            color: #111827;
+        }
+
+        .index-item.active {
+            background-color: #e5e7eb;
+            color: #111827;
+            font-weight: 500;
+        }
+
+        .index-number {
+            display: inline-block;
+            width: 60px;
+            font-family: 'Monaco', monospace;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .index-parameters {
+            display: inline-block;
+            width: 60px;
+            font-family: 'Monaco', monospace;
+            font-size: 10px;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+
+        .index-expandable {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .expand-arrow {
+            font-size: 12px;
+            color: #9ca3af;
+            transition: transform 0.2s ease;
+            margin-right: 4px;
+        }
+
+        .index-expandable.expanded .expand-arrow {
+            transform: rotate(90deg);
+        }
+
+        .index-sublist {
+            margin-left: 16px;
+            border-left: 2px solid #f3f4f6;
+            padding-left: 8px;
+            margin-top: 4px;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            overflow: visible;
+        }
+
+        .index-sublist.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            overflow: hidden;
+        }
+
+        .index-sublist:not(.hidden) {
+            max-height: none;
+            opacity: 1;
+        }
+
+        .index-sublist .index-item {
+            white-space: normal;
+            line-height: 1.4;
+            padding: 6px 8px;
+        }
+
+        .index-sublist .index-number {
+            display: block;
+            width: auto;
+            margin-bottom: 2px;
+        }
+
+        .index-sublist .index-name {
+            display: block;
+            font-size: 12px;
+            color: #374151;
+            word-wrap: break-word;
+        }
+
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 80px 48px 48px 48px;
+            max-width: 1200px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-size: 40px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+
+        .page-description {
+            font-size: 16px;
+            color: #6b7280;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Search bar */
+        .search-bar {
+            margin-bottom: 32px;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #c8997c;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #c8997c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Error state */
+        .error {
+            text-align: center;
+            padding: 60px 20px;
+            color: #ef4444;
+        }
+
+        /* Models table */
+        .models-table {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+        }
+
+        .models-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .models-table thead {
+            background: linear-gradient(135deg, #c8997c, #b5845b);
+            color: white;
+        }
+
+        .models-table th {
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .models-table th:first-child {
+            width: 20%;
+        }
+
+        .models-table th:nth-child(2) {
+            width: 10%;
+        }
+
+        .models-table th:nth-child(3) {
+            width: 35%;
+        }
+
+        .models-table th:nth-child(4) {
+            width: 20%;
+        }
+
+        .models-table th:nth-child(5) {
+            width: 15%;
+        }
+
+        .models-table tbody tr {
+            border-bottom: 1px solid #f3f4f6;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .models-table tbody tr:hover {
+            background: #f9fafb;
+            transform: scale(1.001);
+        }
+
+        .models-table td {
+            padding: 16px 20px;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        .model-name {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .model-index {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: 'Monaco', monospace;
+        }
+
+        .model-parameters {
+            background: #e0f7fa;
+            color: #00695c;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Monaco', monospace;
+            border: 1px solid #4db6ac;
+            display: inline-block;
+        }
+
+        .model-summary {
+            color: #374151;
+            line-height: 1.5;
+            max-height: 60px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .model-architecture {
+            max-width: 200px;
+            max-height: 80px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            background: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .model-architecture svg {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .architecture-placeholder {
+            color: #9ca3af;
+            font-size: 12px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .model-score {
+            font-weight: 600;
+            color: #111827;
+            font-family: 'Monaco', monospace;
+            font-size: 14px;
+        }
+
+        .score-high {
+            color: #059669;
+        }
+
+        .score-medium {
+            color: #d97706;
+        }
+
+        .score-low {
+            color: #dc2626;
+        }
+
+        /* Detail page */
+        .detail-page {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .detail-header {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+
+        .detail-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .detail-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .detail-index {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Monaco', monospace;
+            display: inline-block;
+        }
+
+        .detail-parameters {
+            background: #e0f7fa;
+            color: #00695c;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Monaco', monospace;
+            display: inline-block;
+            border: 1px solid #4db6ac;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(to bottom, #c8997c, #b5845b);
+            border-radius: 2px;
+            margin-right: 12px;
+        }
+
+        .section-content {
+            color: #374151;
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        /* Markdown rendering styles */
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .markdown-content h1 { font-size: 1.5em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.5em;
+        }
+
+        .markdown-content code {
+            background: #f3f4f6;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background: #f8f9fa;
+            color: #374151;
+            padding: 1em;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+            border: 1px solid #e5e7eb;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #c8997c;
+            padding-left: 1em;
+            margin: 1em 0;
+            background: #f9fafb;
+            border-radius: 0 6px 6px 0;
+            padding: 1em 1em 1em 1.5em;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            margin-bottom: 1em;
+            width: 100%;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5em;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+
+        /* SVG container */
+        .svg-container {
+            background: #fafafa;
+            border-radius: 6px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        /* Cartoon style tables */
+        .tables-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transform: rotate(-0.5deg);
+            transition: transform 0.2s ease;
+        }
+
+        .table-wrapper:nth-child(even) {
+            transform: rotate(0.5deg);
+        }
+
+        .table-wrapper:hover {
+            transform: rotate(0deg) scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #c8997c, #b5845b);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .table-content {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            position: relative;
+        }
+
+        th::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #c8997c, #b5845b);
+            border-radius: 1px;
+        }
+
+        td {
+            color: #6b7280;
+            transition: all 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+            transform: scale(1.01);
+        }
+
+        tbody tr:hover td {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Code folding */
+        .code-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .code-toggle {
+            background: #f9fafb;
+            padding: 14px 18px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .code-toggle:hover {
+            background: #f3f4f6;
+        }
+
+        .code-toggle-text {
+            font-weight: 500;
+            color: #111827;
+            display: flex;
+            align-items: center;
+        }
+
+        .code-arrow {
+            transition: transform 0.2s ease;
+            color: #6b7280;
+        }
+
+        .code-toggle.active .code-arrow {
+            transform: rotate(180deg);
+        }
+
+        .code-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .code-content.active {
+            max-height: none;
+        }
+
+        .code-pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            margin: 0;
+            border: 1px solid #4a5568;
+            border-radius: 6px;
+        }
+
+        /* Override Prism.js styles for better integration */
+        .code-pre code[class*="language-"],
+        .code-pre pre[class*="language-"] {
+            background: transparent;
+            color: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Custom syntax highlighting colors similar to VSCode */
+        .code-pre .token.comment,
+        .code-pre .token.prolog,
+        .code-pre .token.doctype,
+        .code-pre .token.cdata {
+            color: #5c6370;
+            font-style: italic;
+        }
+
+        .code-pre .token.punctuation {
+            color: #abb2bf;
+        }
+
+        .code-pre .token.property,
+        .code-pre .token.tag,
+        .code-pre .token.boolean,
+        .code-pre .token.number,
+        .code-pre .token.constant,
+        .code-pre .token.symbol,
+        .code-pre .token.deleted {
+            color: #d19a66;
+        }
+
+        .code-pre .token.selector,
+        .code-pre .token.attr-name,
+        .code-pre .token.string,
+        .code-pre .token.char,
+        .code-pre .token.builtin,
+        .code-pre .token.inserted {
+            color: #98c379;
+        }
+
+        .code-pre .token.operator,
+        .code-pre .token.entity,
+        .code-pre .token.url,
+        .code-pre .language-css .token.string,
+        .code-pre .style .token.string {
+            color: #56b6c2;
+        }
+
+        .code-pre .token.atrule,
+        .code-pre .token.attr-value,
+        .code-pre .token.keyword {
+            color: #c678dd;
+        }
+
+        .code-pre .token.function,
+        .code-pre .token.class-name {
+            color: #61dafb;
+        }
+
+        .code-pre .token.regex,
+        .code-pre .token.important,
+        .code-pre .token.variable {
+            color: #e06c75;
+        }
+
+        /* Parent link */
+        .parent-link {
+            display: inline-flex;
+            align-items: center;
+            background: #111827;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .parent-link:hover {
+            background: #374151;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        /* Back button */
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: color 0.2s ease;
+        }
+
+        .back-button:hover {
+            color: #111827;
+        }
+
+        .back-arrow {
+            margin-right: 6px;
+        }
+
+        /* Hidden class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* File loader styles */
+        .file-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .file-loader.hidden {
+            display: none !important;
+        }
+
+        .file-loader-content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .file-loader h2 {
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        .file-loader p {
+            margin-bottom: 20px;
+            color: #6b7280;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .file-input-button:hover {
+            background: #2563eb;
+        }
+
+        .file-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* Tree search page styles */
+        .tree-search-page {
+            background-color: #ffffff;
+            color: #1f2937;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tree-header {
+            text-align: center;
+            padding: 20px;
+            background: #fafafa;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .tree-header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #111827;
+        }
+
+        .tree-header p {
+            font-size: 16px;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .tree-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .tree-stat-item {
+            text-align: center;
+            background: #f3f4f6;
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .tree-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #111827;
+        }
+
+        .tree-stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tree-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #ffffff;
+            margin: 20px;
+            border-radius: 15px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            min-height: 600px;
+            height: calc(100vh - 300px);
+        }
+
+        .colorbar-container {
+            position: absolute;
+            top: 80px;
+            left: 80px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .colorbar-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .colorbar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .colorbar {
+            width: 90px;
+            height: 12px;
+            border-radius: 3px;
+            border: 1px solid #d1d5db;
+        }
+
+        .colorbar-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 90px;
+            font-size: 10px;
+            color: #374151;
+            line-height: 1.2;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .tree-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .tree-control-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .tree-control-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .tree-svg {
+            width: 100%;
+            height: 100%;
+            cursor: move;
+        }
+
+        .tree-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            max-width: 250px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .tree-back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .tree-back-button:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 80px 20px 40px 20px;
+            }
+
+            .page-title {
+                font-size: 32px;
+            }
+
+            .models-table {
+                overflow-x: auto;
+            }
+
+            .models-table th,
+            .models-table td {
+                padding: 12px 8px;
+                font-size: 12px;
+            }
+
+            .models-table th:nth-child(3),
+            .models-table td:nth-child(3) {
+                min-width: 200px;
+            }
+
+            .models-table th:nth-child(4),
+            .models-table td:nth-child(4) {
+                min-width: 150px;
+            }
+
+            .model-architecture {
+                max-width: 120px;
+                max-height: 60px;
+            }
+
+            .tables-container {
+                flex-direction: column;
+            }
+
+            .table-wrapper {
+                transform: none;
+            }
+
+            .table-wrapper:nth-child(even) {
+                transform: none;
+            }
+        }
+
+        /* Loading animation */
+        @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% {
+                transform: translate3d(0,0,0);
+            }
+            40%, 43% {
+                transform: translate3d(0, -8px, 0);
+            }
+            70% {
+                transform: translate3d(0, -4px, 0);
+            }
+            90% {
+                transform: translate3d(0, -2px, 0);
+            }
+        }
+
+        .bounce-enter {
+            animation: bounce 0.6s ease-in-out;
+        }
+
+        /* Statistics */
+        .stats-bar {
+            background: #f9fafb;
+            padding: 16px 24px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 32px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 600;
+            color: #c8997c;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* Sort controls */
+        .sort-controls {
+            margin-bottom: 24px;
+        }
+
+        .sort-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .sort-btn {
+            padding: 8px 16px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            color: #374151;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sort-btn:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .sort-btn.active {
+            background: #c8997c;
+            border-color: #c8997c;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- File loader -->
+    <div class="file-loader hidden" id="file-loader">
+        <div class="file-loader-content">
+            <h2>Load Data File</h2>
+            <p>Please select the models_output.json file to load neural network data</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="json-file-input" class="file-input" accept=".json" onchange="handleFileSelect(event)">
+                <label for="json-file-input" class="file-input-button">
+                    Select JSON File
+                </label>
+            </div>
+            <div class="file-status" id="file-status">No file selected</div>
+        </div>
+    </div>
+
+    <!-- Tree search file loader -->
+    <div class="file-loader hidden" id="tree-file-loader">
+        <div class="file-loader-content">
+            <h2>Load Tree Search Data</h2>
+            <p>Please select a JSON file containing neural network relationship tree data</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="tree-json-file-input" class="file-input" accept=".json" onchange="handleTreeFileSelect(event)">
+                <label for="tree-json-file-input" class="file-input-button">
+                    Select JSON File
+                </label>
+            </div>
+            <div class="file-status" id="tree-file-status">No file selected</div>
+        </div>
+    </div>
+
+    <!-- Top toolbar -->
+    <div class="top-toolbar">
+        <button class="menu-toggle" onclick="toggleSidebar()">
+            <span class="menu-icon"></span>
+        </button>
+        <div class="logo">Neural Network Research Platform</div>
+    </div>
+
+    <div class="layout">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Navigation</div>
+                    <ul class="index-list">
+                        <li>
+                            <a class="index-item" onclick="toggleDataIndex()" id="all-data-toggle">
+                                All Data
+                            </a>
+                            <ul class="index-list index-sublist hidden" id="index-list">
+                                <!-- Index items will be generated dynamically via JavaScript -->
+                            </ul>
+                        </li>
+                        <li><a class="index-item" onclick="showTreeSearch()">Tree Search</a></li>
+                        <li><a class="index-item" onclick="showAbout()">About Project</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main content area -->
+        <main class="main-content" id="main-content">
+            <!-- Loading state -->
+            <div id="loading-page" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading neural network data...</p>
+            </div>
+
+            <!-- Error state -->
+            <div id="error-page" class="error hidden">
+                <p>An error occurred while loading data. Please try again later.</p>
+            </div>
+
+            <!-- Directory page -->
+            <div id="directory-page" class="hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Efficent Architecture Research Gallery</h1>
+                    <p class="page-description">
+                        Explore cutting-edge machine learning models and algorithms through step-by-step analysis and logical reasoning for complex research problems.
+                    </p>
+                </div>
+
+                <!-- Statistics -->
+                <div class="stats-bar" id="stats-bar">
+                    <div class="stat-item">
+                        <div class="stat-number" id="total-networks">0</div>
+                        <div class="stat-label">Neural Networks</div>
+                    </div>
+                </div>
+
+
+
+                <!-- Sort controls -->
+                <div class="sort-controls">
+                    <div class="sort-buttons">
+                        <button class="sort-btn" id="sort-score-btn" onclick="sortByScore()">
+                            Sort by Score (High to Low)
+                        </button>
+                        <button class="sort-btn" id="sort-params-btn" onclick="sortByParameters()">
+                            Sort by Parameters (Small to Large)
+                        </button>
+                        <button class="sort-btn" id="sort-index-btn" onclick="sortByIndex()">
+                            Sort by Index
+                        </button>
+                    </div>
+                </div>
+
+                <div class="models-table" id="models-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Model Name</th>
+                                <th>Parameters</th>
+                                <th>Summary</th>
+                                <th>Architecture</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="models-tbody">
+                            <!-- Table rows will be generated dynamically via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detail page -->
+            <div id="detail-page" class="hidden">
+                <div id="detail-content">
+                    <!-- Detail content will be generated dynamically via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Tree search page -->
+            <div id="tree-search-page" class="tree-search-page hidden">
+                <button class="tree-back-button" onclick="backToDirectory()">← Back to Data Overview</button>
+                
+                <div class="tree-header">
+                    <h1>Neural Network Relationship Tree</h1>
+                    <p>Evolution tree based on parent-child relationships, with node colors representing performance scores</p>
+                    
+                    <div class="tree-stats" id="tree-stats">
+                        <div class="tree-stat-item">
+                            <div class="tree-stat-number" id="tree-total-nodes">0</div>
+                            <div class="tree-stat-label">Total Nodes</div>
+                        </div>
+                        <div class="tree-stat-item">
+                            <div class="tree-stat-number" id="tree-avg-score">0.00</div>
+                            <div class="tree-stat-label">Average Score</div>
+                        </div>
+                        <div class="tree-stat-item">
+                            <div class="tree-stat-number" id="tree-max-depth">0</div>
+                            <div class="tree-stat-label">Max Depth</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tree-container" id="tree-container">
+                    <div class="colorbar-container">
+                        <div class="colorbar-title">Score</div>
+                        <div class="colorbar-wrapper">
+                            <div class="colorbar" id="colorbar"></div>
+                            <div class="colorbar-labels">
+                                <span id="colorbar-min">0</span>
+                                <span id="colorbar-max">1</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tree-controls">
+                        <button class="tree-control-btn" onclick="resetTreeView()">Reset View</button>
+                        <button class="tree-control-btn" onclick="fitTreeToScreen()">Fit Screen</button>
+                        <button class="tree-control-btn" onclick="downloadTreeAsPNG()">Download PNG</button>
+                        <button class="tree-control-btn" onclick="downloadTreeAsSVG()">Download SVG</button>
+                    </div>
+                    <svg id="tree-svg" class="tree-svg"></svg>
+                    <div id="tree-tooltip" class="tree-tooltip"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global variables
+        let allNetworks = [];
+        let filteredNetworks = [];
+        let sidebarVisible = true;
+        let currentSortType = 'index'; // 'index', 'score', 'parameters'
+        
+        // Tree search related variables
+        let treeNetworks = [];
+        let treeData = null;
+        let treeSvg = null;
+        let treeColorScale = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-load data from specified files
+            setupEventListeners();
+            loadDataFromFiles();
+            
+            // Check if D3.js is loaded
+            if (typeof d3 === 'undefined') {
+                console.error('D3.js not loaded');
+            } else {
+                console.log('D3.js version:', d3.version);
+            }
+        });
+
+        // Load data from specified files
+        async function loadDataFromFiles() {
+            try {
+                // Load all data from models_output_processed.json
+                console.log('Loading all data from ./data/106.json...');
+                const allDataResponse = await fetch('./data/106.json');
+                if (!allDataResponse.ok) {
+                    throw new Error(`Failed to load all data: ${allDataResponse.status}`);
+                }
+                const allData = await allDataResponse.json();
+                
+                // Load tree data from cache_simplified.json
+                console.log('Loading tree data from ./data/tree.json...');
+                const treeDataResponse = await fetch('./data/tree.json');
+                if (!treeDataResponse.ok) {
+                    throw new Error(`Failed to load tree data: ${treeDataResponse.status}`);
+                }
+                const treeDataRaw = await treeDataResponse.json();
+                
+                // Process loaded data
+                loadDataFromObject(allData);
+                loadTreeDataFromObject(treeDataRaw, false); // Don't auto-show during initial load
+                
+            } catch (error) {
+                console.error('Failed to load data files:', error);
+                // Show error and fallback to file selection
+                document.getElementById('loading-page').classList.add('hidden');
+                document.getElementById('error-page').classList.remove('hidden');
+                document.getElementById('error-page').innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ef4444;">
+                        <h2 style="margin-bottom: 16px;">Failed to Load Data</h2>
+                        <p style="margin-bottom: 20px;">Unable to load required data files. Please ensure models_output_processed.json and cache_simplified.json are available.</p>
+                        <button onclick="showFileSelectors()" style="background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">
+                            Load Files Manually
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Show file selectors as fallback
+        function showFileSelectors() {
+            document.getElementById('error-page').classList.add('hidden');
+            document.getElementById('file-loader').classList.remove('hidden');
+        }
+
+        // File selection handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const statusElement = document.getElementById('file-status');
+            statusElement.textContent = `Selected: ${file.name}`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    loadDataFromObject(data);
+                } catch (error) {
+                    console.error('Failed to parse JSON file:', error);
+                    statusElement.textContent = 'File format error, please select a valid JSON file';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Tree search file selection handling
+        function handleTreeFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const statusElement = document.getElementById('tree-file-status');
+            statusElement.textContent = `Selected: ${file.name}`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    loadTreeDataFromObject(data, true); // Auto-show when user manually selects file
+                } catch (error) {
+                    console.error('Failed to parse tree search JSON file:', error);
+                    statusElement.textContent = 'File format error, please select a valid JSON file';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Load data from object
+        function loadDataFromObject(data) {
+            try {
+                console.log('Data loaded successfully:', data.length, 'networks');
+                
+                allNetworks = data;
+                filteredNetworks = [...allNetworks];
+                
+                // Hide file loader
+                console.log('Hiding file loader...');
+                const fileLoader = document.getElementById('file-loader');
+                fileLoader.classList.add('hidden');
+                console.log('File loader hidden:', fileLoader.classList.contains('hidden'));
+                
+                // Show directory page
+                document.getElementById('loading-page').classList.add('hidden');
+                document.getElementById('directory-page').classList.remove('hidden');
+                
+                            // Generate content
+            generateCards();
+            generateIndexList();
+            updateStatistics();
+            
+            // Initialize sort buttons
+            updateSortButtons();
+                
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                document.getElementById('loading-page').classList.add('hidden');
+                document.getElementById('error-page').classList.remove('hidden');
+            }
+        }
+
+        // Load tree search data from object
+        function loadTreeDataFromObject(data, autoShow = false) {
+            try {
+                // Check data format
+                if (data.results && Array.isArray(data.results)) {
+                    // cache_simplified.json format
+                    console.log('Tree search data loaded successfully:', data.results.length, 'networks');
+                    treeNetworks = data.results;
+                } else if (Array.isArray(data)) {
+                    // Direct array format
+                    console.log('Tree search data loaded successfully:', data.length, 'networks');
+                    treeNetworks = data;
+                } else {
+                    throw new Error('Unsupported data format');
+                }
+                
+                // Hide tree search file loader
+                const treeFileLoader = document.getElementById('tree-file-loader');
+                treeFileLoader.classList.add('hidden');
+                
+                // Only show tree search page if explicitly requested
+                if (autoShow) {
+                    document.getElementById('tree-search-page').classList.remove('hidden');
+                    // Build and render tree
+                    buildAndRenderTree();
+                }
+                
+            } catch (error) {
+                console.error('Failed to load tree search data:', error);
+                document.getElementById('tree-file-status').textContent = 'Failed to load data, please try again';
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Search input has been removed, no event listeners needed
+        }
+
+        // Search functionality removed - keeping all networks visible
+
+        // Update statistics
+        function updateStatistics() {
+            const totalNetworks = filteredNetworks.length;
+
+            document.getElementById('total-networks').textContent = totalNetworks;
+        }
+
+        // Generate index list
+        function generateIndexList() {
+            const indexList = document.getElementById('index-list');
+            indexList.innerHTML = '';
+            
+            filteredNetworks.forEach(item => {
+                const li = document.createElement('li');
+                const link = document.createElement('a');
+                link.className = 'index-item';
+                link.onclick = () => showDetailPage(item.index);
+                
+                const displayName = item.name_new || item.name || 'Unknown';
+                const parameters = item.parameters || 'N/A';
+                
+                link.innerHTML = `
+                    <span class="index-number">#${item.index}</span>
+                    <span class="index-name">${displayName}</span>
+                `;
+                
+                li.appendChild(link);
+                indexList.appendChild(li);
+            });
+        }
+
+        // Generate table rows
+        function generateCards() {
+            const tbody = document.getElementById('models-tbody');
+            tbody.innerHTML = '';
+            
+            if (filteredNetworks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 40px;">No matching networks found</td></tr>';
+                return;
+            }
+            
+            filteredNetworks.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.onclick = () => showDetailPage(item.index);
+                
+                const displayName = item.name_new || item.name || 'Unknown Network';
+                const displaySummary = item.summary || item.motivation || 'No description available';
+                const parameters = item.parameters || 'N/A';
+                const score = item.score !== undefined && item.score !== null ? parseFloat(item.score) : null;
+                
+                // Determine score class based on value
+                let scoreClass = 'score-low';
+                if (score !== null) {
+                    if (score >= 0.4) {
+                        scoreClass = 'score-high';
+                    } else if (score >= 0.3) {
+                        scoreClass = 'score-medium';
+                    }
+                }
+                
+                // Process architecture diagram
+                let architectureHtml = '';
+                if (item.svg_picture && item.svg_picture.trim()) {
+                    architectureHtml = `<div class="model-architecture">${item.svg_picture}</div>`;
+                } else {
+                    architectureHtml = '<div class="model-architecture"><div class="architecture-placeholder">No diagram</div></div>';
+                }
+                
+                row.innerHTML = `
+                    <td>
+                        <div class="model-name">${displayName}</div>
+                        <div class="model-index">#${item.index}</div>
+                    </td>
+                    <td>
+                        <div class="model-parameters">${parameters}</div>
+                    </td>
+                    <td>
+                        <div class="model-summary">${displaySummary}</div>
+                    </td>
+                    <td>
+                        ${architectureHtml}
+                    </td>
+                    <td>
+                        <div class="model-score ${scoreClass}">${score !== null ? score.toFixed(4) : 'N/A'}</div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // CSV parsing function
+        function parseCSV(csvString) {
+            const lines = csvString.trim().split(/\r?\n/);
+            const headers = lines[0].split(',');
+            const rows = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const row = {};
+                for (let j = 0; j < headers.length; j++) {
+                    row[headers[j]] = values[j] || '';
+                }
+                rows.push(row);
+            }
+            
+            return { headers, rows };
+        }
+
+        // Create table
+        function createTable(data, title) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            
+            const header = document.createElement('div');
+            header.className = 'table-header';
+            header.textContent = title;
+            wrapper.appendChild(header);
+            
+            const content = document.createElement('div');
+            content.className = 'table-content';
+            
+            const table = document.createElement('table');
+            
+            // Create table header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            data.headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Create table body
+            const tbody = document.createElement('tbody');
+            data.rows.forEach(row => {
+                const tr = document.createElement('tr');
+                data.headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = row[header];
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            
+            content.appendChild(table);
+            wrapper.appendChild(content);
+            return wrapper;
+        }
+
+        // Show detail page
+        function showDetailPage(index) {
+            const data = allNetworks.find(item => item.index === index);
+            if (!data) {
+                document.getElementById('detail-content').innerHTML = 
+                    '<div style="color: #6b7280; padding: 24px; text-align: center; line-height: 1.6;"><p>This node is not included in the top 100 results displayed here.</p><p>If you are interested in more details, please visit our <a href="#" style="color: #3b82f6; text-decoration: underline;">HuggingFace repository</a>.</p></div>';
+                return;
+            }
+            
+            document.getElementById('directory-page').classList.add('hidden');
+            document.getElementById('detail-page').classList.remove('hidden');
+            
+            // Update sidebar active state
+            document.querySelectorAll('.index-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const detailContent = document.getElementById('detail-content');
+            
+            // Parse CSV data
+            const trainData = parseCSV(data.result.train);
+            const testData = parseCSV(data.result.test);
+            
+            // Use new fields if available, fallback to old fields
+            const displayName = data.name_new || data.name || 'Unknown Network';
+            const displayMotivation = data.motivation || 'No description available';
+            
+            // Create enhanced training data with deltanet and gated deltanet comparison
+            const enhancedTrainData = createEnhancedTrainingData(trainData, displayName);
+            
+            // Update test data to use name_new for model names
+            const updatedTestData = updateTestDataModelNames(testData, displayName);
+            
+            detailContent.innerHTML = `
+                <a href="#" class="back-button" onclick="showDirectory()">
+                    <span class="back-arrow">←</span>
+                    Back to Data Overview
+                </a>
+                
+                <div class="detail-header">
+                    <h1 class="detail-title">${displayName}</h1>
+                    <div class="detail-info">
+                        <span class="detail-index">#${data.index}</span>
+                        <span class="detail-parameters">${data.parameters || 'N/A'}</span>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2 class="section-title">Research Motivation</h2>
+                    <div class="section-content markdown-content">${marked.parse(displayMotivation)}</div>
+                </div>
+                
+                <div class="section">
+                    <h2 class="section-title">Architecture Diagram</h2>
+                    <div class="svg-container">
+                        ${data.svg_picture}
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2 class="section-title">Experimental Results</h2>
+                    <div class="tables-container">
+                        <div id="train-table"></div>
+                        <div id="test-table"></div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h2 class="section-title">Program Code</h2>
+                    <div class="code-section">
+                        <div class="code-toggle" onclick="toggleCode()">
+                            <span class="code-toggle-text">View Complete Code</span>
+                            <span class="code-arrow">↓</span>
+                        </div>
+                        <div class="code-content" id="code-content">
+                            <pre class="code-pre"><code class="language-python">${escapeHtml(data.program)}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                ${data.parent ? `
+                <div class="section">
+                    <h2 class="section-title">Related Research</h2>
+                    <a href="#" class="parent-link" onclick="showDetailPage(${data.parent})">
+                        Go to Parent Research (#${data.parent})
+                    </a>
+                </div>
+                ` : ''}
+            `;
+            
+            // Create and insert enhanced training table with comparison data
+            const trainTable = createTable(enhancedTrainData, `Training Loss Comparison - ${displayName}`);
+            const testTable = createTable(updatedTestData, `Test Scores - ${displayName}`);
+            
+            document.getElementById('train-table').appendChild(trainTable);
+            document.getElementById('test-table').appendChild(testTable);
+            
+            // Apply syntax highlighting to code sections if Prism is available
+            if (typeof Prism !== 'undefined') {
+                setTimeout(() => {
+                    Prism.highlightAll();
+                }, 200);
+            }
+        }
+
+        // Create enhanced training data with deltanet and gated deltanet comparison
+        function createEnhancedTrainingData(originalTrainData, modelName) {
+            // deltanet loss data (starting from step 500)
+            const deltanetLosses = [5.1532, 4.8421, 4.5947, 4.3772, 4.2155, 4.0338, 3.9330, 3.8148, 3.7576, 3.7160, 3.6412, 3.5928, 3.5765, 3.5381, 3.4951, 3.5055];
+
+            // gated deltanet loss data (starting from step 500)
+            const gatedDeltanetLosses = [4.7908, 4.5393, 4.3642, 4.2144, 4.0949, 3.9439, 3.8624, 3.7586, 3.7010, 3.6672, 3.6003, 3.5528, 3.5397, 3.5045, 3.4690, 3.4768];
+
+            // If no original training data, return original structure with comparison rows
+            if (!originalTrainData || !originalTrainData.rows || originalTrainData.rows.length === 0) {
+                return originalTrainData;
+            }
+
+            // Create enhanced data structure based on original data, but skip early columns (1-400)
+            const startColumnIndex = 6; // Skip columns 1, 100, 200, 300, 400 (start from 500)
+            const filteredHeaders = originalTrainData.headers.filter((header, index) => {
+                return index === 0 || index >= startColumnIndex; // Keep first column (model name) and columns from index 6+
+            });
+            
+            const enhancedData = {
+                headers: [...filteredHeaders],
+                rows: []
+            };
+
+            // Add original data rows first and update model names to use name_new, filtering columns
+            originalTrainData.rows.forEach(row => {
+                const filteredRow = {};
+                filteredHeaders.forEach((header, newIndex) => {
+                    if (newIndex === 0) {
+                        // First column is model name - use name_new
+                        filteredRow[header] = modelName;
+                    } else {
+                        // Copy the corresponding value from original row
+                        filteredRow[header] = row[header];
+                    }
+                });
+                enhancedData.rows.push(filteredRow);
+            });
+
+            // Create deltanet row
+            const deltanetRow = {};
+            filteredHeaders.forEach((header, index) => {
+                if (index === 0) {
+                    // First column is model name
+                    deltanetRow[header] = 'DeltaNet (Baseline)';
+                } else {
+                    // Other columns are loss values, index-1 because we skip first column
+                    const lossIndex = Math.min(index - 1, deltanetLosses.length - 1);
+                    deltanetRow[header] = deltanetLosses[lossIndex].toFixed(4);
+                }
+            });
+
+            // Create gated deltanet row
+            const gatedDeltanetRow = {};
+            filteredHeaders.forEach((header, index) => {
+                if (index === 0) {
+                    // First column is model name
+                    gatedDeltanetRow[header] = 'Gated DeltaNet (Baseline)';
+                } else {
+                    // Other columns are loss values, index-1 because we skip first column
+                    const lossIndex = Math.min(index - 1, gatedDeltanetLosses.length - 1);
+                    gatedDeltanetRow[header] = gatedDeltanetLosses[lossIndex].toFixed(4);
+                }
+            });
+
+            // Insert deltanet and gated deltanet as second and third rows
+            enhancedData.rows.splice(1, 0, deltanetRow);
+            enhancedData.rows.splice(2, 0, gatedDeltanetRow);
+
+            return enhancedData;
+        }
+
+        // Update test data to use name_new for model names and add baseline comparison
+        function updateTestDataModelNames(testData, modelName) {
+            if (!testData || !testData.rows || testData.rows.length === 0 || !testData.headers || testData.headers.length === 0) {
+                return testData;
+            }
+
+            // Define columns to exclude
+            const excludedColumns = ['fda', 'squad_completion', 'swde', 'lambada_openai', 'wikitext', 'lam_ppl', 'openbookqa', 'Average', 'average'];
+
+            // Filter headers to exclude unwanted columns
+            const filteredHeaders = testData.headers.filter(header => 
+                !excludedColumns.includes(header)
+            );
+
+            // Define the 7 core tasks for average calculation
+            const coreTaskColumns = ['arc_challenge', 'arc_easy', 'boolq', 'hellaswag', 'piqa', 'social_iqa', 'winogrande'];
+            
+            // Add Average column to headers if not already present
+            if (!filteredHeaders.includes('Average')) {
+                filteredHeaders.push('Average');
+            }
+
+            // Create a copy of the test data with filtered headers
+            const updatedTestData = {
+                headers: [...filteredHeaders],
+                rows: []
+            };
+
+            // Update all rows to use name_new in the first column and filter out excluded columns
+            const firstHeader = filteredHeaders[0]; // First column header (usually model name)
+            testData.rows.forEach(row => {
+                const updatedRow = {};
+                filteredHeaders.forEach(header => {
+                    if (header === firstHeader) {
+                        updatedRow[header] = modelName;
+                    } else if (header === 'Average') {
+                        // Calculate average from core tasks
+                        const validScores = [];
+                        coreTaskColumns.forEach(task => {
+                            if (testData.headers.includes(task) && row[task]) {
+                                const score = parseFloat(row[task]);
+                                if (!isNaN(score)) {
+                                    validScores.push(score);
+                                }
+                            }
+                        });
+                        updatedRow[header] = validScores.length > 0 ? 
+                            (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(4) : 
+                            'N/A';
+                    } else {
+                        updatedRow[header] = row[header] || '';
+                    }
+                });
+                updatedTestData.rows.push(updatedRow);
+            });
+
+            // Add deltanet baseline scores
+            const deltanetTestScores = {
+                [firstHeader]: 'DeltaNet (Baseline)',
+                // Add deltanet baseline test scores from results JSON
+                'arc_challenge': '0.1817',
+                'arc_easy': '0.4407',
+                'boolq': '0.5538',
+                'hellaswag': '0.2715',
+                'piqa': '0.5871',
+                'social_iqa': '0.3419',
+                'winogrande': '0.5043'
+            };
+
+            // Add gated deltanet baseline scores  
+            const gatedDeltanetTestScores = {
+                [firstHeader]: 'Gated DeltaNet (Baseline)',
+                // Add gated deltanet baseline test scores from results JSON
+                'arc_challenge': '0.1903',
+                'arc_easy': '0.4537',
+                'boolq': '0.5798',
+                'hellaswag': '0.2713',
+                'piqa': '0.5968',
+                'social_iqa': '0.3465',
+                'winogrande': '0.5083'
+            };
+
+            // Only add baseline scores if the test data has corresponding columns
+            const hasBaselineColumns = updatedTestData.headers.some(header => 
+                deltanetTestScores.hasOwnProperty(header) || gatedDeltanetTestScores.hasOwnProperty(header)
+            );
+
+            if (hasBaselineColumns) {
+                // Calculate Average for deltanet baseline
+                const deltanetValidScores = [];
+                coreTaskColumns.forEach(task => {
+                    if (deltanetTestScores[task]) {
+                        const score = parseFloat(deltanetTestScores[task]);
+                        if (!isNaN(score)) {
+                            deltanetValidScores.push(score);
+                        }
+                    }
+                });
+                deltanetTestScores['Average'] = deltanetValidScores.length > 0 ? 
+                    (deltanetValidScores.reduce((a, b) => a + b, 0) / deltanetValidScores.length).toFixed(4) : 
+                    'N/A';
+
+                // Calculate Average for gated deltanet baseline
+                const gatedDeltanetValidScores = [];
+                coreTaskColumns.forEach(task => {
+                    if (gatedDeltanetTestScores[task]) {
+                        const score = parseFloat(gatedDeltanetTestScores[task]);
+                        if (!isNaN(score)) {
+                            gatedDeltanetValidScores.push(score);
+                        }
+                    }
+                });
+                gatedDeltanetTestScores['Average'] = gatedDeltanetValidScores.length > 0 ? 
+                    (gatedDeltanetValidScores.reduce((a, b) => a + b, 0) / gatedDeltanetValidScores.length).toFixed(4) : 
+                    'N/A';
+
+                // Insert deltanet and gated deltanet as second and third rows
+                updatedTestData.rows.splice(1, 0, deltanetTestScores);
+                updatedTestData.rows.splice(2, 0, gatedDeltanetTestScores);
+            }
+
+            return updatedTestData;
+        }
+
+        // Show directory page
+        function showDirectory() {
+            document.getElementById('detail-page').classList.add('hidden');
+            document.getElementById('tree-search-page').classList.add('hidden');
+            document.getElementById('error-page').classList.add('hidden');
+            
+            // Check if there is all data
+            if (allNetworks.length === 0) {
+                document.getElementById('error-page').classList.remove('hidden');
+                document.getElementById('error-page').innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ef4444;">
+                        <h2 style="margin-bottom: 16px;">Data Not Available</h2>
+                        <p style="margin-bottom: 20px;">Neural network data is not loaded. Please check if models_output_processed.json is available.</p>
+                        <button onclick="location.reload()" style="background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">
+                            Reload Page
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('directory-page').classList.remove('hidden');
+            
+            // Regenerate index list to ensure it's up to date
+            generateIndexList();
+            
+            // Update sidebar active state for other items
+            document.querySelectorAll('.index-item:not(#all-data-toggle)').forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+
+        // Sidebar toggle function
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            
+            sidebarVisible = !sidebarVisible;
+            
+            if (sidebarVisible) {
+                sidebar.classList.remove('hidden');
+                mainContent.classList.remove('expanded');
+            } else {
+                sidebar.classList.add('hidden');
+                mainContent.classList.add('expanded');
+            }
+        }
+
+        // HTML escape function for code content
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Toggle code display
+        function toggleCode() {
+            const content = document.getElementById('code-content');
+            const toggle = document.querySelector('.code-toggle');
+            
+            content.classList.toggle('active');
+            toggle.classList.toggle('active');
+            
+            // Apply syntax highlighting when code is shown
+            if (content.classList.contains('active') && typeof Prism !== 'undefined') {
+                setTimeout(() => {
+                    Prism.highlightAllUnder(content);
+                }, 100);
+            }
+        }
+
+        // Show statistics
+        function showStatistics() {
+            // Here you can add a statistics page
+            console.log('Display statistics');
+        }
+
+                // Show about page
+        function showAbout() {
+            // Redirect to GitHub repository
+            console.log('Display about page');
+            window.open('https://github.com/GAIR-NLP/ASI-Arch', '_blank');
+        }
+
+        // Toggle data index visibility
+        function toggleDataIndex() {
+            const indexList = document.getElementById('index-list');
+            const toggle = document.getElementById('all-data-toggle');
+            
+            if (indexList.classList.contains('hidden')) {
+                // Expand
+                indexList.classList.remove('hidden');
+                toggle.classList.add('active');
+                
+                // Also show the directory page
+                showDirectory();
+            } else {
+                // Collapse
+                indexList.classList.add('hidden');
+                toggle.classList.remove('active');
+            }
+        }
+
+        // Show tree search page
+        function showTreeSearch() {
+            // Hide other pages
+            document.getElementById('directory-page').classList.add('hidden');
+            document.getElementById('detail-page').classList.add('hidden');
+            document.getElementById('error-page').classList.add('hidden');
+            
+            // Check if there is tree search data
+            if (treeNetworks.length === 0) {
+                // Show error message instead of file loader
+                document.getElementById('error-page').classList.remove('hidden');
+                document.getElementById('error-page').innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ef4444;">
+                        <h2 style="margin-bottom: 16px;">Tree Data Not Available</h2>
+                        <p style="margin-bottom: 20px;">Tree search data is not loaded. Please check if cache_simplified.json is available.</p>
+                        <button onclick="showDirectory()" style="background: #6b7280; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">
+                            Back to Directory
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Show tree search page
+            document.getElementById('tree-search-page').classList.remove('hidden');
+            
+            // Build and render tree
+            buildAndRenderTree();
+        }
+
+        // Build tree structure
+        function buildTreeStructure(nodes) {
+            if (!nodes || nodes.length === 0) {
+                console.log('No node data available to build tree structure');
+                return null;
+            }
+            
+            console.log('Building tree structure, node count:', nodes.length);
+            console.log('First few nodes:', nodes.slice(0, 3));
+            
+            // Create node mapping
+            const nodeMap = {};
+            nodes.forEach(node => {
+                nodeMap[node.index] = {
+                    ...node,
+                    children: []
+                };
+            });
+            
+            // Find root node and build parent-child relationships
+            let root = null;
+            const orphanedNodes = [];
+            
+            nodes.forEach(node => {
+                const parent = node.parent;
+                
+                if (!parent || parent === 0 || parent === node.index || parent === "" || parent === null) {
+                    // Root node
+                    if (!root) {
+                        root = nodeMap[node.index];
+                    } else {
+                        // Multiple root nodes, select the one with the smallest index
+                        if (node.index < root.index) {
+                            const oldRoot = root;
+                            root = nodeMap[node.index];
+                            root.children.push(oldRoot);
+                        } else {
+                            root.children.push(nodeMap[node.index]);
+                        }
+                    }
+                } else {
+                    // Child node
+                    const parentNode = nodeMap[parent];
+                    if (parentNode) {
+                        parentNode.children.push(nodeMap[node.index]);
+                    } else {
+                        orphanedNodes.push(node.index);
+                    }
+                }
+            });
+            
+            // Handle orphaned nodes
+            if (orphanedNodes.length > 0 && root) {
+                console.log('Handling orphaned nodes:', orphanedNodes.length, 'nodes');
+                orphanedNodes.forEach(orphanId => {
+                    root.children.push(nodeMap[orphanId]);
+                });
+            }
+            
+            console.log('Tree structure built, root node:', root);
+            return root;
+        }
+
+        // Build and render tree
+        function buildAndRenderTree() {
+            console.log('Starting to build tree, data size:', treeNetworks.length);
+            
+            // Build tree structure
+            treeData = buildTreeStructure(treeNetworks);
+            
+            if (!treeData) {
+                console.error('Unable to build tree structure');
+                return;
+            }
+            
+            console.log('Tree structure built successfully:', treeData);
+            
+            // Update tree statistics
+            updateTreeStatistics();
+            
+            // Render tree
+            renderTree();
+        }
+
+        // Update tree statistics
+        function updateTreeStatistics() {
+            const totalNodes = treeNetworks.length;
+            
+            // Get score data with updated calculation for specific models
+            const scores = treeNetworks.map(n => {
+                // Use hardcoded values for DeltaNet and Gated DeltaNet
+                if (n.index === 1 && n.name === 'delta_net') {
+                    return 0.3799; // DeltaNet baseline average
+                }
+                // Look for Gated DeltaNet - need to find its index in the data
+                if (n.name && n.name.includes('gated') && n.name.includes('delta')) {
+                    return 0.3896; // Gated DeltaNet baseline average
+                }
+                
+                // For other models, calculate average from test results if available
+                if (n.result && n.result.test) {
+                    const testData = parseCSV(n.result.test);
+                    if (testData && testData.headers && testData.rows && testData.rows.length > 0) {
+                        // Filter to use only the 7 core tasks
+                        const coreTaskColumns = ['arc_challenge', 'arc_easy', 'boolq', 'hellaswag', 'piqa', 'social_iqa', 'winogrande'];
+                        const validScores = [];
+                        
+                        const firstRow = testData.rows[0]; // Use first row data
+                        coreTaskColumns.forEach(task => {
+                            if (testData.headers.includes(task) && firstRow[task]) {
+                                const score = parseFloat(firstRow[task]);
+                                if (!isNaN(score)) {
+                                    validScores.push(score);
+                                }
+                            }
+                        });
+                        
+                        if (validScores.length > 0) {
+                            return validScores.reduce((a, b) => a + b, 0) / validScores.length;
+                        }
+                    }
+                }
+                
+                // Fallback to existing score field
+                if (n.score !== undefined && n.score !== null) {
+                    return parseFloat(n.score);
+                }
+                
+                return 0;
+            }).filter(s => !isNaN(s));
+            
+            const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(4) : '0.0000';
+            
+            // Calculate maximum depth
+            function getMaxDepth(node, depth = 0) {
+                if (!node.children || node.children.length === 0) {
+                    return depth;
+                }
+                return Math.max(...node.children.map(child => getMaxDepth(child, depth + 1)));
+            }
+            
+            const maxDepth = treeData ? getMaxDepth(treeData) + 1 : 0;
+            
+            document.getElementById('tree-total-nodes').textContent = totalNodes;
+            document.getElementById('tree-avg-score').textContent = avgScore;
+            document.getElementById('tree-max-depth').textContent = maxDepth;
+        }
+
+        // Render tree
+        function renderTree() {
+            if (!treeData) {
+                console.error('No tree data available to render');
+                return;
+            }
+            
+            const container = document.getElementById('tree-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            console.log('Starting to render tree, container size:', width, 'x', height);
+            
+            if (width === 0 || height === 0) {
+                console.error('Container size is 0, unable to render tree');
+                return;
+            }
+            
+            // Clear previous SVG content
+            d3.select('#tree-svg').selectAll('*').remove();
+            
+            // Create SVG
+            treeSvg = d3.select('#tree-svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            console.log('SVG created successfully, element:', treeSvg.node());
+            
+            // Create zoom and pan behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+            
+            treeSvg.call(zoom);
+            
+            // Create main drawing group
+            const g = treeSvg.append('g');
+            console.log('Main drawing group created successfully:', g.node());
+            
+            // Create tree layout
+            const treeLayout = d3.tree()
+                .size([width - 100, height - 100])
+                .separation((a, b) => {
+                    // Improved spacing algorithm, making horizontal distribution more uniform
+                    if (a.parent === b.parent) {
+                        // Spacing between child nodes of the same parent
+                        return 1.2;
+                    } else {
+                        // Spacing between child nodes of different parents
+                        // Using a more balanced spacing strategy
+                        const depthA = a.depth;
+                        const depthB = b.depth;
+                        const avgDepth = (depthA + depthB) / 2;
+                        
+                        // Adjust spacing based on depth, making distribution more uniform
+                        if (avgDepth <= 1) {
+                            return 1.8; // Top layer nodes slightly spread out
+                        } else if (avgDepth <= 3) {
+                            return 1.4; // Middle layer nodes spaced evenly
+                        } else {
+                            return 1.2; // Deep layer nodes relatively compact
+                        }
+                    }
+                });
+            
+            // Calculate node positions
+            const root = d3.hierarchy(treeData);
+            treeLayout(root);
+            
+            // Create color scale
+            const scores = treeNetworks.map(n => {
+                if (n.score !== undefined && n.score !== null) {
+                    return parseFloat(n.score);
+                }
+                // Compatibility with old format
+                if (n.result && n.result.test) {
+                    const testLines = n.result.test.split('\n');
+                    if (testLines.length > 1) {
+                        const values = testLines[1].split(',');
+                        return values.length > 1 ? parseFloat(values[1]) : 0;
+                    }
+                }
+                return 0;
+            }).filter(s => !isNaN(s));
+            
+            const minScore = Math.min(...scores);
+            const maxScore = Math.max(...scores);
+            
+            // Use the same RdYlBu color scheme as the original version
+            const rdylbuColors = [
+                '#a50026', '#d73027', '#f46d43', '#fdae61', '#fee090',
+                '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'
+            ];
+            
+            treeColorScale = d3.scaleSequential(d3.interpolateRgbBasis(rdylbuColors))
+                .domain([minScore, maxScore]);
+            
+            // Create color bar
+            createColorbar(minScore, maxScore);
+            
+            // Draw connection lines with orthogonal (elbow) style
+            const links = root.links();
+            
+            // Custom orthogonal link path generator
+            function orthogonalLink(d) {
+                const source = d.source;
+                const target = d.target;
+                
+                // Calculate midpoint for the elbow
+                const midY = source.y + (target.y - source.y) / 2;
+                
+                return `M${source.x},${source.y}
+                        L${source.x},${midY}
+                        L${target.x},${midY}
+                        L${target.x},${target.y}`;
+            }
+            
+            g.selectAll('.tree-link')
+                .data(links)
+                .enter()
+                .append('path')
+                .attr('class', 'tree-link')
+                .attr('d', orthogonalLink)
+                .style('fill', 'none')
+                .style('stroke', '#d1d5db')
+                .style('stroke-width', 1.5);
+            
+            // Draw nodes
+            const nodes = root.descendants();
+            console.log('Number of nodes in tree:', nodes.length);
+            console.log('First few node positions:', nodes.slice(0, 3).map(n => ({x: n.x, y: n.y, index: n.data.index})));
+            
+            const nodeGroups = g.selectAll('.tree-node')
+                .data(nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'tree-node')
+                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .on('mouseover', function(event, d) {
+                    // Add hover effect
+                    d3.select(this).select('circle')
+                        .style('stroke', 'rgba(55, 65, 81, 0.8)')
+                        .style('stroke-width', 2);
+                    showTreeTooltip(event, d);
+                })
+                .on('mouseout', function(event, d) {
+                    // Remove hover effect
+                    d3.select(this).select('circle')
+                        .style('stroke', 'none');
+                    hideTreeTooltip();
+                })
+                .on('click', (event, d) => {
+                    // Click node to go to detail page
+                    showTreeDetailPage(d.data.index);
+                });
+            
+            // Add circles (heat map effect)
+            nodeGroups.append('circle')
+                .attr('r', 12)
+                .style('fill', d => {
+                    const data = d.data;
+                    if (data.score !== undefined && data.score !== null) {
+                        const score = parseFloat(data.score);
+                        if (!isNaN(score)) {
+                            return treeColorScale(score);
+                        }
+                    }
+                    return '#666'; // 默认灰色
+                })
+                .style('stroke', 'none')
+                .style('opacity', 0.9)
+                .style('cursor', 'pointer');
+            
+            // Don't display text labels, just show solid color nodes (consistent with original version)
+            
+            console.log('Tree rendering completed');
+            
+            // Simple center display
+            setTimeout(() => {
+                console.log('Starting center display');
+                const bounds = g.node().getBBox();
+                if (bounds.width > 0 && bounds.height > 0) {
+                    const scale = Math.min(width / (bounds.width + 100), height / (bounds.height + 100), 1);
+                    const translateX = (width - bounds.width * scale) / 2 - bounds.x * scale;
+                    const translateY = (height - bounds.height * scale) / 2 - bounds.y * scale;
+                    g.attr('transform', `translate(${translateX}, ${translateY}) scale(${scale})`);
+                    console.log('Applied transformation:', {scale, translateX, translateY, bounds});
+                } else {
+                    // If getBBox fails, use default center
+                    g.attr('transform', 'translate(50, 50)');
+                    console.log('Using default center');
+                }
+            }, 100);
+        }
+
+        // Show tree tooltip
+        function showTreeTooltip(event, d) {
+            const tooltip = document.getElementById('tree-tooltip');
+            const data = d.data;
+            
+            let score = 'N/A';
+            if (data.score !== undefined && data.score !== null) {
+                const scoreValue = parseFloat(data.score);
+                if (!isNaN(scoreValue)) {
+                    score = scoreValue.toFixed(4);
+                }
+            } else if (data.result && data.result.test) {
+                // Compatibility with old format
+                const testLines = data.result.test.split('\n');
+                if (testLines.length > 1) {
+                    const values = testLines[1].split(',');
+                    if (values.length > 1) {
+                        const scoreValue = parseFloat(values[1]);
+                        if (!isNaN(scoreValue)) {
+                            score = scoreValue.toFixed(4);
+                        }
+                    }
+                }
+            }
+            
+            const tooltipName = data.name_new || data.name || 'Unknown Network';
+            tooltip.innerHTML = `
+                <strong>${tooltipName}</strong><br>
+                Index: ${data.index}<br>
+                Score: ${score}<br>
+                Level: ${d.depth}<br>
+                Children: ${d.children ? d.children.length : 0}
+            `;
+            
+            // Get container's bounding rectangle
+            const container = document.getElementById('tree-container');
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calculate position relative to container
+            const x = event.clientX - containerRect.left;
+            const y = event.clientY - containerRect.top;
+            
+            // First set position to calculate tooltip size
+            tooltip.style.left = (x + 15) + 'px';
+            tooltip.style.top = (y - 15) + 'px';
+            tooltip.style.opacity = 1;
+            
+            // Boundary detection and adjustment
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            let adjustedX = x + 15;
+            let adjustedY = y - 15;
+            
+            // If tooltip exceeds right boundary, display on mouse's left side
+            if (adjustedX + tooltipRect.width > containerWidth) {
+                adjustedX = x - tooltipRect.width - 15;
+            }
+            
+            // If tooltip exceeds top boundary, display below mouse
+            if (adjustedY < 0) {
+                adjustedY = y + 15;
+            }
+            
+            // If tooltip exceeds bottom boundary, display above mouse
+            if (adjustedY + tooltipRect.height > containerHeight) {
+                adjustedY = y - tooltipRect.height - 15;
+            }
+            
+            // Apply adjusted position
+            tooltip.style.left = adjustedX + 'px';
+            tooltip.style.top = adjustedY + 'px';
+        }
+
+        // Hide tree tooltip
+        function hideTreeTooltip() {
+            document.getElementById('tree-tooltip').style.opacity = 0;
+        }
+
+        // Reset tree view
+        function resetTreeView() {
+            if (treeSvg) {
+                treeSvg.transition().duration(750).call(
+                    d3.zoom().transform,
+                    d3.zoomIdentity
+                );
+            }
+        }
+
+        // Fit to screen
+        function fitTreeToScreen() {
+            if (!treeSvg || !treeData) {
+                console.log('fitTreeToScreen: missing necessary elements');
+                return;
+            }
+            
+            const container = document.getElementById('tree-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            console.log('fitTreeToScreen: container size', width, 'x', height);
+            
+            try {
+                const gElement = treeSvg.select('g').node();
+                if (!gElement) {
+                    console.log('fitTreeToScreen: unable to find g element');
+                    return;
+                }
+                
+                const bounds = gElement.getBBox();
+                const fullWidth = bounds.width;
+                const fullHeight = bounds.height;
+                
+                console.log('fitTreeToScreen: content size', fullWidth, 'x', fullHeight);
+                
+                if (fullWidth === 0 || fullHeight === 0) {
+                    console.log('fitTreeToScreen: content size is 0');
+                    return;
+                }
+                
+                const widthScale = (width - 100) / fullWidth;
+                const heightScale = (height - 100) / fullHeight;
+                const scale = Math.min(widthScale, heightScale, 1);
+                
+                const translateX = (width - fullWidth * scale) / 2 - bounds.x * scale;
+                const translateY = (height - fullHeight * scale) / 2 - bounds.y * scale;
+                
+                console.log('fitTreeToScreen: applying transformation', {scale, translateX, translateY});
+                
+                treeSvg.transition().duration(750).call(
+                    d3.zoom().transform,
+                    d3.zoomIdentity.translate(translateX, translateY).scale(scale)
+                );
+            } catch (error) {
+                console.error('fitTreeToScreen error:', error);
+            }
+        }
+
+        // Show directory page
+        function showDirectory() {
+            document.getElementById('detail-page').classList.add('hidden');
+            document.getElementById('tree-search-page').classList.add('hidden');
+            document.getElementById('error-page').classList.add('hidden');
+            
+            // Check if there is all data
+            if (allNetworks.length === 0) {
+                document.getElementById('error-page').classList.remove('hidden');
+                document.getElementById('error-page').innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ef4444;">
+                        <h2 style="margin-bottom: 16px;">Data Not Available</h2>
+                        <p style="margin-bottom: 20px;">Neural network data is not loaded. Please check if models_output_processed.json is available.</p>
+                        <button onclick="location.reload()" style="background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">
+                            Reload Page
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('directory-page').classList.remove('hidden');
+            
+            // Regenerate index list to ensure it's up to date
+            generateIndexList();
+            
+            // Update sidebar active state for other items
+            document.querySelectorAll('.index-item:not(#all-data-toggle)').forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+
+        // Back to directory page from tree search
+        function backToDirectory() {
+            document.getElementById('tree-search-page').classList.add('hidden');
+            document.getElementById('error-page').classList.add('hidden');
+            
+            // Check if there is all data
+            if (allNetworks.length === 0) {
+                document.getElementById('error-page').classList.remove('hidden');
+                document.getElementById('error-page').innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ef4444;">
+                        <h2 style="margin-bottom: 16px;">Data Not Available</h2>
+                        <p style="margin-bottom: 20px;">Neural network data is not loaded. Please check if models_output_processed.json is available.</p>
+                        <button onclick="location.reload()" style="background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">
+                            Reload Page
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('directory-page').classList.remove('hidden');
+        }
+
+        // Show detailed page of tree search
+        function showTreeDetailPage(index) {
+            const data = treeNetworks.find(item => item.index === index);
+            if (!data) {
+                console.error('No data found for index', index, 'in tree search');
+                return;
+            }
+            
+            document.getElementById('tree-search-page').classList.add('hidden');
+            document.getElementById('detail-page').classList.remove('hidden');
+            
+            const detailContent = document.getElementById('detail-content');
+            
+            // Check data format and build content
+            let contentSections = '';
+            
+            // Basic information
+            const displayName = data.name_new || data.name || 'Unknown Network';
+            contentSections += `
+                <div class="section">
+                    <h2 class="section-title">Basic Information</h2>
+                    <div class="section-content">
+                        <p><strong>Name:</strong> ${displayName}</p>
+                        <p><strong>Index:</strong> ${data.index}</p>
+                        <p><strong>Score:</strong> ${data.score !== undefined ? data.score.toFixed(4) : 'N/A'}</p>
+                        <p><strong>Parent Node:</strong> ${data.parent || 'None'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // If there is detailed data, display more information  
+            if (data.motivation) {
+                contentSections += `
+                    <div class="section">
+                        <h2 class="section-title">Research Motivation</h2>
+                        <div class="section-content markdown-content">${marked.parse(data.motivation)}</div>
+                    </div>
+                `;
+            }
+            
+            if (data.svg_picture) {
+                contentSections += `
+                    <div class="section">
+                        <h2 class="section-title">Architecture Diagram</h2>
+                        <div class="svg-container">
+                            ${data.svg_picture}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (data.result) {
+                contentSections += `
+                    <div class="section">
+                        <h2 class="section-title">Experimental Results</h2>
+                        <div class="tables-container">
+                            <div id="train-table"></div>
+                            <div id="test-table"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (data.program) {
+                contentSections += `
+                    <div class="section">
+                        <h2 class="section-title">Program Code</h2>
+                        <div class="code-section">
+                            <div class="code-toggle" onclick="toggleCode()">
+                                <span class="code-toggle-text">View Complete Code</span>
+                                <span class="code-arrow">↓</span>
+                            </div>
+                            <div class="code-content" id="code-content">
+                                <pre class="code-pre"><code class="language-python">${escapeHtml(data.program)}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (data.parent) {
+                contentSections += `
+                    <div class="section">
+                        <h2 class="section-title">Related Research</h2>
+                        <a href="#" class="parent-link" onclick="showTreeDetailPage(${data.parent})">
+                            Go to Parent Research (#${data.parent})
+                        </a>
+                    </div>
+                `;
+            }
+            
+            detailContent.innerHTML = `
+                <a href="#" class="back-button" onclick="backToTreeSearch()">
+                    <span class="back-arrow">←</span>
+                    Back to Tree Search
+                </a>
+                
+                <div class="detail-header">
+                    <h1 class="detail-title">${displayName}</h1>
+                    <span class="detail-index">#${data.index}</span>
+                </div>
+                
+                ${contentSections}
+            `;
+            
+            // If there is experimental result data, create and insert tables
+            if (data.result) {
+                const trainData = parseCSV(data.result.train);
+                const testData = parseCSV(data.result.test);
+                
+                // Create enhanced training data with deltanet and gated deltanet comparison
+                const enhancedTrainData = createEnhancedTrainingData(trainData, displayName);
+                
+                // Update test data to use name_new for model names
+                const updatedTestData = updateTestDataModelNames(testData, displayName);
+                
+                const trainTable = createTable(enhancedTrainData, `Training Loss Comparison - ${displayName}`);
+                const testTable = createTable(updatedTestData, `Test Scores - ${displayName}`);
+                
+                const trainContainer = document.getElementById('train-table');
+                const testContainer = document.getElementById('test-table');
+                
+                if (trainContainer) trainContainer.appendChild(trainTable);
+                if (testContainer) testContainer.appendChild(testTable);
+            }
+            
+            // Apply syntax highlighting to code sections if Prism is available
+            if (typeof Prism !== 'undefined') {
+                setTimeout(() => {
+                    Prism.highlightAll();
+                }, 200);
+            }
+        }
+
+        // Back to tree search from detail page
+        function backToTreeSearch() {
+            document.getElementById('detail-page').classList.add('hidden');
+            document.getElementById('tree-search-page').classList.remove('hidden');
+        }
+
+        // Download tree as PNG
+        function downloadTreeAsPNG() {
+            if (!treeSvg || !treeData) {
+                alert('请先加载树形图数据');
+                return;
+            }
+
+            // Use html2canvas library to capture entire tree container
+            const container = document.getElementById('tree-container');
+            
+            // If html2canvas is not available, use fallback method
+            if (typeof html2canvas === 'undefined') {
+                downloadSVGOnly();
+                return;
+            }
+
+            // Hide control buttons before taking screenshot
+            const controls = container.querySelector('.tree-controls');
+            const originalDisplay = controls ? controls.style.display : '';
+            if (controls) {
+                controls.style.display = 'none';
+            }
+
+            html2canvas(container, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            }).then(canvas => {
+                // Restore control buttons display
+                if (controls) {
+                    controls.style.display = originalDisplay;
+                }
+                // Download image
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = 'neural_network_tree.png';
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png');
+            }).catch(error => {
+                // Restore control buttons display (in case of error)
+                if (controls) {
+                    controls.style.display = originalDisplay;
+                }
+                console.error('Failed to download using html2canvas, trying fallback method:', error);
+                downloadSVGOnly();
+            });
+        }
+
+        // Fallback download method (only SVG)
+        function downloadSVGOnly() {
+            // Get SVG element
+            const svgElement = document.getElementById('tree-svg');
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set high resolution
+            const scale = 2;
+            canvas.width = svgElement.clientWidth * scale;
+            canvas.height = svgElement.clientHeight * scale;
+            ctx.scale(scale, scale);
+            
+            // Set white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Create image
+            const img = new Image();
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                
+                // Download image
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = 'neural_network_tree.png';
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png');
+            };
+            
+            img.src = url;
+        }
+
+        // Download tree as PDF
+        function downloadTreeAsPDF() {
+            if (!treeSvg || !treeData) {
+                alert('请先加载树形图数据');
+                return;
+            }
+
+            // Check if jsPDF is available
+            if (typeof window.jsPDF === 'undefined' && typeof jsPDF === 'undefined') {
+                alert('PDF functionality not available, please use PNG download');
+                return;
+            }
+
+            const container = document.getElementById('tree-container');
+            
+            // Hide control buttons before taking screenshot
+            const controls = container.querySelector('.tree-controls');
+            const originalDisplay = controls ? controls.style.display : '';
+            if (controls) {
+                controls.style.display = 'none';
+            }
+
+            html2canvas(container, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            }).then(canvas => {
+                // Restore control buttons display
+                if (controls) {
+                    controls.style.display = originalDisplay;
+                }
+
+                // Create PDF
+                let jsPDFClass = window.jsPDF;
+                if (!jsPDFClass && window.jspdf) {
+                    jsPDFClass = window.jspdf.jsPDF;
+                }
+                if (!jsPDFClass && typeof jsPDF !== 'undefined') {
+                    jsPDFClass = jsPDF;
+                }
+                
+                if (!jsPDFClass) {
+                    alert('Failed to load PDF library, please refresh page or use PNG download');
+                    return;
+                }
+                
+                // Calculate PDF size - using A4 landscape
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const ratio = imgHeight / imgWidth;
+                
+                // A4 landscape size (mm)
+                const pdfWidth = 297;
+                const pdfHeight = 210;
+                
+                let finalWidth, finalHeight;
+                
+                // Calculate appropriate size, maintaining aspect ratio
+                if (ratio > pdfHeight / pdfWidth) {
+                    // Image is taller, use height as reference
+                    finalHeight = pdfHeight - 20; // Leave margin
+                    finalWidth = finalHeight / ratio;
+                } else {
+                    // Image is wider, use width as reference
+                    finalWidth = pdfWidth - 20; // Leave margin
+                    finalHeight = finalWidth * ratio;
+                }
+                
+                const pdf = new jsPDFClass({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
+                // Center image placement
+                const x = (pdfWidth - finalWidth) / 2;
+                const y = (pdfHeight - finalHeight) / 2;
+                
+                // Convert canvas to image and add to PDF
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+                
+                // Add title
+                pdf.setFontSize(16);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Neural Network Relationship Tree', pdfWidth / 2, 15, { align: 'center' });
+                
+                // Download PDF
+                pdf.save('neural_network_tree.pdf');
+                
+            }).catch(error => {
+                // Restore control buttons display (in case of error)
+                if (controls) {
+                    controls.style.display = originalDisplay;
+                }
+                console.error('Failed to download PDF:', error);
+                alert('Failed to download PDF, please try PNG download');
+                         });
+         }
+
+        // Download tree as SVG
+        function downloadTreeAsSVG() {
+            if (!treeSvg || !treeData) {
+                alert('请先加载树形图数据');
+                return;
+            }
+
+            // Get SVG element
+            const svgElement = document.getElementById('tree-svg');
+            const svgClone = svgElement.cloneNode(true);
+            
+            // Get color bar information
+            const colorbarContainer = document.querySelector('.colorbar-container');
+            const colorbarTitle = document.querySelector('.colorbar-title').textContent;
+            const colorbarMin = document.getElementById('colorbar-min').textContent;
+            const colorbarMax = document.getElementById('colorbar-max').textContent;
+            
+            // Set SVG's viewBox and size
+            const bbox = svgElement.getBBox();
+            const padding = 50;
+            const width = bbox.width + padding * 2;
+            const height = bbox.height + padding * 2;
+            
+            svgClone.setAttribute('width', width);
+            svgClone.setAttribute('height', height);
+            svgClone.setAttribute('viewBox', `${bbox.x - padding} ${bbox.y - padding} ${width} ${height}`);
+            svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            
+            // Add white background
+            const backgroundRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            backgroundRect.setAttribute('x', bbox.x - padding);
+            backgroundRect.setAttribute('y', bbox.y - padding);
+            backgroundRect.setAttribute('width', width);
+            backgroundRect.setAttribute('height', height);
+            backgroundRect.setAttribute('fill', '#ffffff');
+            svgClone.insertBefore(backgroundRect, svgClone.firstChild);
+            
+                                      // Add color bar to SVG (top left, closer to corner)
+             const colorbarGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+             const colorbarX = bbox.x - padding + 50; // Move more to the right
+             const colorbarY = bbox.y - padding + 50; // Move more down
+             colorbarGroup.setAttribute('transform', `translate(${colorbarX}, ${colorbarY})`);
+            
+                         // Color bar background
+             const colorbarBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+             colorbarBg.setAttribute('x', '0');
+             colorbarBg.setAttribute('y', '0');
+             colorbarBg.setAttribute('width', '114');
+             colorbarBg.setAttribute('height', '48');
+             colorbarBg.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
+             colorbarBg.setAttribute('stroke', '#e5e7eb');
+             colorbarBg.setAttribute('rx', '6');
+             colorbarGroup.appendChild(colorbarBg);
+             
+             // Color bar title
+             const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+             titleText.setAttribute('x', '57');
+             titleText.setAttribute('y', '18');
+             titleText.setAttribute('text-anchor', 'middle');
+             titleText.setAttribute('font-size', '14');
+             titleText.setAttribute('font-weight', '600');
+             titleText.setAttribute('fill', '#374151');
+             titleText.textContent = colorbarTitle;
+             colorbarGroup.appendChild(titleText);
+            
+            // Color bar gradient
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+            gradient.setAttribute('id', 'colorbar-gradient');
+            gradient.setAttribute('x1', '0%');
+            gradient.setAttribute('y1', '0%');
+            gradient.setAttribute('x2', '100%');
+            gradient.setAttribute('y2', '0%');
+            
+            // Add gradient colors - red for low scores, blue for high scores
+            const rdylbuColors = [
+                '#a50026', '#d73027', '#f46d43', '#fdae61', '#fee090',
+                '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'
+            ];
+            
+            rdylbuColors.forEach((color, index) => {
+                const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop.setAttribute('offset', `${(index / (rdylbuColors.length - 1)) * 100}%`);
+                stop.setAttribute('stop-color', color);
+                gradient.appendChild(stop);
+            });
+            
+            defs.appendChild(gradient);
+            svgClone.appendChild(defs);
+            
+                         // Color bar rectangle
+             const colorbarRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+             colorbarRect.setAttribute('x', '12');
+             colorbarRect.setAttribute('y', '26');
+             colorbarRect.setAttribute('width', '90');
+             colorbarRect.setAttribute('height', '12');
+             colorbarRect.setAttribute('fill', 'url(#colorbar-gradient)');
+             colorbarRect.setAttribute('stroke', '#d1d5db');
+             colorbarRect.setAttribute('rx', '3');
+             colorbarGroup.appendChild(colorbarRect);
+             
+             // Color bar labels
+             const minLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+             minLabel.setAttribute('x', '12');
+             minLabel.setAttribute('y', '46');
+             minLabel.setAttribute('font-size', '10');
+             minLabel.setAttribute('font-weight', '500');
+             minLabel.setAttribute('fill', '#374151');
+             minLabel.textContent = colorbarMin;
+             colorbarGroup.appendChild(minLabel);
+             
+             const maxLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+             maxLabel.setAttribute('x', '102');
+             maxLabel.setAttribute('y', '46');
+             maxLabel.setAttribute('text-anchor', 'end');
+             maxLabel.setAttribute('font-size', '10');
+             maxLabel.setAttribute('font-weight', '500');
+             maxLabel.setAttribute('fill', '#374151');
+             maxLabel.textContent = colorbarMax;
+             colorbarGroup.appendChild(maxLabel);
+            
+            svgClone.appendChild(colorbarGroup);
+            
+            // Create download link
+            const svgData = new XMLSerializer().serializeToString(svgClone);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            const link = document.createElement('a');
+            link.download = 'neural_network_tree.svg';
+            link.href = url;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // Create color bar
+        function createColorbar(minScore, maxScore) {
+            const colorbar = document.getElementById('colorbar');
+            
+            // Create gradient background - red for high scores, blue for low scores
+            const rdylbuColors = [
+                '#a50026', '#d73027', '#f46d43', '#fdae61', '#fee090',
+                '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'
+            ];
+            
+            // Create horizontal gradient (from low to high scores)
+            // Left side (low scores) = red, Right side (high scores) = blue
+            const gradientStops = rdylbuColors.map((color, index) => {
+                const percentage = (index / (rdylbuColors.length - 1)) * 100;
+                return `${color} ${percentage}%`;
+            }).join(', ');
+            
+            colorbar.style.background = `linear-gradient(to right, ${gradientStops})`;
+            
+            // Update labels (left is minimum value, right is maximum value)
+            document.getElementById('colorbar-min').textContent = minScore.toFixed(3);
+            document.getElementById('colorbar-max').textContent = maxScore.toFixed(3);
+        }
+
+        // Apply current sorting to filtered networks
+        function applySorting() {
+            switch (currentSortType) {
+                case 'score':
+                    filteredNetworks.sort((a, b) => {
+                        const scoreA = getNetworkScore(a);
+                        const scoreB = getNetworkScore(b);
+                        return scoreB - scoreA; // High to low
+                    });
+                    break;
+                case 'params':
+                    filteredNetworks.sort((a, b) => {
+                        const paramsA = parseParameterCount(a.parameters);
+                        const paramsB = parseParameterCount(b.parameters);
+                        return paramsA - paramsB; // Small to large
+                    });
+                    break;
+                case 'index':
+                default:
+                    filteredNetworks.sort((a, b) => a.index - b.index);
+                    break;
+            }
+        }
+
+        // Sort by score (high to low)
+        function sortByScore() {
+            currentSortType = 'score';
+            updateSortButtons();
+            applySorting();
+            generateCards();
+            generateIndexList();
+        }
+
+        // Sort by parameters (large to small)
+        function sortByParameters() {
+            currentSortType = 'params';
+            updateSortButtons();
+            applySorting();
+            generateCards();
+            generateIndexList();
+        }
+
+        // Sort by index (default)
+        function sortByIndex() {
+            currentSortType = 'index';
+            updateSortButtons();
+            applySorting();
+            generateCards();
+            generateIndexList();
+        }
+
+        // Get network score for sorting
+        function getNetworkScore(network) {
+            // Directly use the score field from JSON data
+            if (network.score !== undefined && network.score !== null) {
+                const score = parseFloat(network.score);
+                if (!isNaN(score)) {
+                    return score;
+                }
+            }
+            
+            return 0; // Default score if no valid score found
+        }
+
+        // Parse parameter count from string
+        function parseParameterCount(paramStr) {
+            if (!paramStr || paramStr === 'N/A') {
+                return 0;
+            }
+            
+            // Handle different formats like "1.2M", "500K", "1.5B", etc.
+            const str = paramStr.toString().toLowerCase().trim();
+            const match = str.match(/([0-9.]+)([kmb]?)/);
+            
+            if (!match) {
+                // Try to parse as direct number
+                const num = parseFloat(str);
+                return isNaN(num) ? 0 : num;
+            }
+            
+            const number = parseFloat(match[1]);
+            const unit = match[2];
+            
+            if (isNaN(number)) {
+                return 0;
+            }
+            
+            switch (unit) {
+                case 'k':
+                    return number * 1000;
+                case 'm':
+                    return number * 1000000;
+                case 'b':
+                    return number * 1000000000;
+                default:
+                    return number;
+            }
+        }
+
+        // Update sort button states
+        function updateSortButtons() {
+            // Remove active class from all buttons
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Add active class to current sort button
+            const activeBtn = document.getElementById(`sort-${currentSortType}-btn`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
+        }
+
+        // Expose global functions
+        window.showDetailPage = showDetailPage;
+        window.showDirectory = showDirectory;
+        window.backToDirectory = backToDirectory;
+        window.showTreeDetailPage = showTreeDetailPage;
+        window.backToTreeSearch = backToTreeSearch;
+        window.toggleCode = toggleCode;
+        window.toggleSidebar = toggleSidebar;
+        window.toggleDataIndex = toggleDataIndex;
+        window.showStatistics = showStatistics;
+        window.showAbout = showAbout;
+        window.showTreeSearch = showTreeSearch;
+        window.resetTreeView = resetTreeView;
+        window.fitTreeToScreen = fitTreeToScreen;
+        window.downloadTreeAsPNG = downloadTreeAsPNG;
+        window.downloadTreeAsSVG = downloadTreeAsSVG;
+        window.showFileSelectors = showFileSelectors;
+        window.sortByScore = sortByScore;
+        window.sortByParameters = sortByParameters;
+        window.sortByIndex = sortByIndex;
+    </script>
+</body>
+</html> 
