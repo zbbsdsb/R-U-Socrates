@@ -1,0 +1,4 @@
+**/__pycache__/*
+*.env
+.evolve_runs/
+.test_tmp/
