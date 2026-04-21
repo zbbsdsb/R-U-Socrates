@@ -1,221 +1,193 @@
-# R U Socrates 项目计划
+# R U Socrates — Project Plan
 
-## 项目概述
-R U Socrates 是一个基于 ASI-Evolve 的端到端产品，旨在将研究型自动化框架转变为面向普通用户的可视化、可解释、可发布的 Socratic 工作流工具。
+> **Companion document.** The living execution plan is `planning/EXECUTION_PLAN.md`.
+> This document provides project-level context. Technical details are in `planning/TECHNICAL_ARCHITECTURE.md` and `planning/MODULE_BREAKDOWN.md`.
 
-## 阶段划分
+---
 
-### 阶段 1: 项目初始化与架构设计 (1-2 周)
+## Project Overview
 
-#### 任务 1.1: 仓库结构搭建
-- 创建符合 monorepo 结构的项目框架
-- 设置目录结构：apps、services、packages、infra 等
-- 配置包管理工具 (pnpm + uv)
+R U Socrates transforms ASI-Evolve (an autonomous AI research framework) into a product that普通用户 can understand, run, verify, and publish from — via a Socratic human-AI dialogue workflow.
 
-#### 任务 1.2: 核心接口定义
-- 设计统一的数据结构和适配器协议
-- 定义 FusionTask、CandidateProgram、EvalResult、AnalysisResult 等核心类型
-- 创建共享类型包 (packages/types)
+**The core value proposition**: A user with no ML background can pose a research question, and the system autonomously runs experiment cycles, returning a Socratic-style explanation backed by evidence.
 
-#### 任务 1.3: 技术栈配置
-- 设置 Next.js 前端项目
-- 配置 FastAPI 后端服务
-- 初始化 PostgreSQL 数据库和 Redis 队列
-- 配置 Docker 和 Docker Compose
+---
 
-### 阶段 2: 核心功能实现 (3-4 周)
+## Target Users
 
-#### 任务 2.1: ASI-Evolve 内核封装
-- 将研究循环封装为服务接口
-- 实现 Job/Run/Result 模型
-- 开发核心适配器，支持不同研究后端
+| User Type | Need |
+|-----------|------|
+| Researchers without ML expertise | Automate experiment search without writing code |
+| Curious professionals | Explore hypotheses in structured domains |
+| Educators | Generate and verify counter-examples to student propositions |
+| Early ASI-Evolve users | A GUI front-end instead of config-file-driven execution |
 
-#### 任务 2.2: 模型网关开发
-- 实现本地和云端 LLM 的统一接口
-- 支持 OpenAI、DeepSeek 等多种模型提供商
-- 开发模型调用监控和成本管理
+---
 
-#### 任务 2.3: 沙箱执行器
-- 开发隔离的评测脚本执行环境
-- 实现资源限制和超时控制
-- 支持安全的代码执行
+## Strategic Decisions (Summary of ADRs)
 
-#### 任务 2.4: 记忆系统优化
-- 改进 Cognition 和 Database 模块
-- 提高检索效率和存储性能
-- 实现用户可理解的知识库界面
+| ADR | Decision | Rationale |
+|-----|----------|-----------|
+| ADR-001 | SQLite dev, PostgreSQL prod | Minimize dev friction until multi-user concurrency needed |
+| ADR-002 | No sandbox in Phase 1–2 | Developer-only trust model; sandbox is Phase 3 engineering |
+| ADR-003 | LiteLLM over custom adapters | ~500 lines of boilerplate avoided; 100+ models supported |
 
-### 阶段 3: 前端开发 (3-4 周)
+Full text: `planning/ADR/`
 
-#### 任务 3.1: Web 应用壳层
-- 实现首页、工作台和结果页
-- 开发响应式设计，支持不同设备
-- 配置路由和状态管理
+---
 
-#### 任务 3.2: 用户界面设计
-- 创建直观的任务配置界面
-- 设计结果展示和可视化界面
-- 实现任务状态和进度跟踪
+## Phased Roadmap
 
-#### 任务 3.3: 模板系统
-- 开发模板库和预览功能
-- 实现模板版本控制和管理
-- 支持自定义模板创建
+### Phase 0 — Upstream Validation (~1 week)
 
-#### 任务 3.4: 可解释性面板
-- 实现结果解释和证据展示
-- 开发风险提示和来源追踪
-- 支持结果导出和分享
+Validate that ASI-Evolve runs locally before planning against it.
 
-### 阶段 4: 后端服务搭建 (2-3 周)
+**Tasks:**
+- Read and annotate `pipeline/main.py`
+- Read `utils/structures.py` (Node / CognitionItem schemas)
+- Configure `config.yaml` with one accessible LLM (OpenAI or Ollama)
+- Run one complete experiment end-to-end
+- Produce `planning/reports/phase0-validation.md`
 
-#### 任务 4.1: API 编排层
-- 开发 RESTful 接口和任务管理系统
-- 实现认证和授权机制
-- 配置 API 文档和测试
+**Exit criterion:** One research loop completes and produces a structured result.
 
-#### 任务 4.2: 异步队列
-- 实现任务调度和执行
-- 开发任务重试和失败处理
-- 配置队列监控和管理
+### Phase 1 — Monorepo Skeleton + Core Services (~2–3 weeks)
 
-#### 任务 4.3: 数据持久化
-- 设置 PostgreSQL 数据库和对象存储
-- 实现数据备份和恢复
-- 配置数据库索引和优化
+Build a runnable system without a frontend. Sequence is dependency-driven.
 
-#### 任务 4.4: 监控系统
-- 集成日志和指标监控
-- 实现错误跟踪和告警
-- 开发性能分析和优化
+**Tasks:**
+1. `packages/types/` — Shared TypeScript types (Task, Run, Result, Template, Model, User)
+2. `services/memory/` — FAISS + sentence-transformers, SQLite persistence
+3. `services/model-gateway/` — LiteLLM wrapper with model aliasing and cost tracking
+4. `services/worker/` — Research loop: Researcher + Engineer + Analyzer adapted from ASI-Evolve
+5. `services/api/` — FastAPI routes + SQLAlchemy models + Celery task queue
+6. `infra/compose/` — Docker Compose tying all services
 
-### 阶段 5: 测试与优化 (2-3 周)
+**Exit criterion:** `POST /api/tasks` → worker executes → `GET /api/results` returns structured output.
 
-#### 任务 5.1: 单元测试
-- 编写核心功能的单元测试
-- 实现测试覆盖率报告
-- 确保代码质量和稳定性
+### Phase 2 — Frontend + Real User Flow (~3–4 weeks)
 
-#### 任务 5.2: 集成测试
-- 验证系统各组件的协同工作
-- 测试端到端流程和边界情况
-- 确保系统可靠性和一致性
+A web UI where a non-technical user can complete the full workflow.
 
-#### 任务 5.3: 性能优化
-- 提高系统响应速度和资源利用率
-- 优化模型调用和数据处理
-- 实现缓存和并行处理
+**Pages (by priority):**
+1. Task Creation — template selection, parameter configuration, submission
+2. Run Monitor — real-time SSE progress (Researcher / Engineer / Analyzer stages)
+3. Result Display — Socratic explanation, evidence list, export to Markdown
+4. Template Library — browse and preview templates
+5. Settings — model selection, API key configuration
 
-#### 任务 5.4: 安全审计
-- 检查潜在的安全漏洞
-- 实现输入验证和防护
-- 确保系统安全和数据保护
+**Exit criterion:** A user with no ML background creates a task and reads a result without assistance.
 
-### 阶段 6: 发布与部署 (1-2 周)
+### Phase 3 — Hardening & Real Deployment (~2–3 weeks)
 
-#### 任务 6.1: 发布准备
-- 准备文档、示例和安装指南
-- 编写 README 和贡献指南
-- 配置 LICENSE 和 NOTICE 文件
+Deferred items from Phase 1, triggered by real needs:
 
-#### 任务 6.2: Docker 镜像
-- 构建容器化部署方案
-- 配置环境变量和配置文件
-- 测试容器运行和部署
+| Upgrade | Trigger |
+|---------|---------|
+| SQLite → PostgreSQL | Multi-user write concurrency |
+| Process exec → Docker sandbox | Untrusted user input in production |
+| Local FS → S3-compatible storage | Cloud deployment / multi-instance |
+| Docker Compose → Kubernetes | Multi-node scale-out |
+| ASI-Arch adapter | Explicit demand for architecture discovery capability |
 
-#### 任务 6.3: CI/CD 配置
-- 设置自动化测试和部署流程
-- 配置 GitHub Actions 工作流
-- 实现版本控制和发布管理
+---
 
-#### 任务 6.4: 公测与反馈
-- 收集用户反馈并进行迭代改进
-- 修复 bug 和优化性能
-- 准备正式发布版本
+## Milestones
 
-## 技术栈选择
+| Milestone | Description | Target |
+|-----------|-------------|--------|
+| M0 | Phase 0 validation complete, upstream behavior confirmed | Week 1 |
+| M1 | Monorepo skeleton runs; `/api/tasks` works end-to-end | Week 3–4 |
+| M2 | Frontend covers full user flow (create → monitor → result) | Week 6–8 |
+| M3 | Phase 3 hardening triggered by real deployment need | TBD |
 
-### 前端
-- Next.js (App Router)
-- React Server Components
-- TypeScript (Strict Mode)
+---
+
+## Technology Stack
+
+### Frontend
+- Next.js 14 (App Router, React Server Components)
+- React 18, TypeScript 5 (strict mode)
 - TailwindCSS + Shadcn/UI
-- Zustand (状态管理)
-- TanStack Query (数据获取)
+- Zustand (state management), TanStack Query (data fetching)
 
-### 后端
-- FastAPI
+### Backend
 - Python 3.10+
-- PostgreSQL
-- Redis (队列)
-- Docker + Docker Compose
+- FastAPI 0.100+ (async, OpenAPI auto-generated)
+- SQLAlchemy 2.0+ (ORM)
+- Celery 5+ (task queue)
+- Redis 7+ (broker/cache)
 
-### 存储
-- PostgreSQL (关系数据)
-- S3 兼容存储 (对象存储)
-- FAISS (向量索引)
+### AI / ML
+- LiteLLM (unified LLM interface — see ADR-003)
+- FAISS 1.7+ + sentence-transformers (all-MiniLM-L6-v2, 384-dim)
+- Ollama (local model option)
 
-### 模型
-- OpenAI 兼容 API
-- 支持本地模型 (Ollama)
-- 支持云端模型 (DeepSeek, OpenAI, etc.)
+### Infrastructure
+- Docker 20+ / Docker Compose 2.0+ (Phase 1–2)
+- Kubernetes (Phase 3)
 
-## 部署模式
+---
 
-### 本地优先模式
-- 文本、模板与中间结果尽可能不出用户设备
-- 适合隐私敏感用户
-- 依赖本地硬件性能
+## Deployment Modes
 
-### 托管云端模式
-- 提供便利的在线服务
-- 适合普通用户快速使用
-- 支持扩展和高可用性
+| Mode | Description | Target |
+|------|-------------|--------|
+| Local-first | All computation on-device; no cloud dependency | Developers, privacy-sensitive users |
+| Managed cloud | Hosted service; user uploads tasks | General users |
+| Private deployment | On-premise for institutions (school, enterprise) | Schools, research labs, enterprises |
 
-### 机构私有部署
-- 面向学校、智库、企业内部环境
-- 提供完全控制和定制能力
-- 支持内部数据安全要求
+---
 
-## 许可方案
+## License
 
-- **核心层**：继承自 ASI-Evolve 的 Apache-2.0 许可证
-- **应用层**：新增的 Web 壳层、设计资源、模板资产等使用 PolyForm Noncommercial 许可证
-- **明确边界**：在 README 和 LICENSE 文件中清楚说明授权边界
+| Layer | License | Notes |
+|-------|---------|-------|
+| Core (fork of ASI-Evolve) | Apache-2.0 | Inherited from upstream |
+| Application layer (web shell, new adapters, templates) | PolyForm Noncommercial | Source-available; not open-source |
 
-## 里程碑
+See `LICENSE` file for full boundary definitions.
 
-1. **M1**: 项目初始化完成 (2 周)
-2. **M2**: 核心功能实现完成 (6 周)
-3. **M3**: 前端开发完成 (9 周)
-4. **M4**: 后端服务搭建完成 (11 周)
-5. **M5**: 测试与优化完成 (13 周)
-6. **M6**: 公测版本发布 (14 周)
+---
 
-## 风险与缓解措施
+## Risk Register
 
-### 风险 1: 模型成本控制
-- **缓解**：实现模型调用监控和预算管理，支持模型降级策略
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| ASI-Evolve has undocumented dependencies | Medium | High | Phase 0 validates this first |
+| LiteLLM API incompatibility | Low | Medium | Thin abstraction layer; swap in one file |
+| LLM cost explosion | Medium | Medium | Budget limits per task; model fallback chain |
+| Scope creep (adding features before MVP) | High | High | Strict phase gates; no features from later phases |
+| Upstream (ASI-Evolve) architecture doesn't map to our services | Medium | Medium | Fork-and-adapt strategy; minimal re-architecture |
 
-### 风险 2: 系统性能
-- **缓解**：优化代码执行和数据处理，实现缓存和并行处理
+---
 
-### 风险 3: 安全漏洞
-- **缓解**：定期安全审计，实现输入验证和防护措施
+## Team
 
-### 风险 4: 部署复杂性
-- **缓解**：提供详细的部署文档和 Docker 镜像，支持多种部署模式
+For a single-developer initial implementation, the "team roles" collapse:
+- Developer = all roles
+- Decision-making: Document-first (this plan, ADRs) before code
 
-### 风险 5: 用户体验
-- **缓解**：进行用户测试，收集反馈并迭代改进
+As the team grows, assign: frontend lead, backend/worker lead, infrastructure/devops.
 
-## 团队角色
+---
 
-- **前端开发**：负责 Web 界面和用户体验
-- **后端开发**：负责 API、服务和数据处理
-- **全栈/平台**：负责基础设施和部署
-- **研究负责人**：负责核心算法和模型集成
+## Reference Documents
 
-## 结论
+| Document | Role |
+|---------|------|
+| `planning/EXECUTION_PLAN.md` | **Living** implementation plan (this is the most important) |
+| `planning/TECHNICAL_ARCHITECTURE.md` | System architecture, API design, data flow |
+| `planning/MODULE_BREAKDOWN.md` | Module inventory, dependency graph, interfaces |
+| `planning/TECHNICAL_IMPLEMENTATION.md` | Tech stack specifics, Docker Compose, dependency lists |
+| `planning/ADR/` | Architecture decision records |
+| `prepare/ASI-Evolve-main/` | Primary upstream kernel |
+| `prepare/ASI-Arch-main/` | Secondary upstream; specialized capability |
 
-R U Socrates 项目将通过系统化的规划和实施，将 ASI-Evolve 从一个研究框架转变为面向普通用户的端到端产品。通过分层架构设计、模块化实现和严格的测试流程，项目将确保系统的稳定性、安全性和用户友好性。最终目标是创建一个人人可理解、可运行、可验证、可发布的 Socratic 工作流工具，为用户提供强大的 AI 辅助研究能力。
+---
+
+## Change Log
+
+| Date | Change |
+|------|--------|
+| 2026-04-21 | Complete revision. Added Phase 0 validation, MVP-first strategy, three ADRs (SQLite, sandbox deferral, LiteLLM), and structured milestone tracking. Removed over-engineered elements (gVisor, ELK, Kubernetes) from Phase 1–2. |
