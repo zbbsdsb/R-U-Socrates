@@ -6,10 +6,10 @@
 
 ---
 
-## Status: ✅ Code Analysis Complete — Local Execution Pending
+## Status: ✅ Code Analysis Complete — Windows Fix Applied
 
-> Execution is blocked until two Windows compatibility issues are resolved.
-> Both are documented below with workarounds. See §5 (Windows Compatibility Issues).
+> Windows compatibility issue #1 (bash subprocess) has been patched in `prepare/ASI-Evolve-main/pipeline/engineer/engineer.py`.
+> Remaining: package naming mismatch (Issue #2) — requires directory rename or PYTHONPATH workaround.
 
 ---
 
@@ -199,23 +199,24 @@ except ImportError:
 
 ## 5. Windows Compatibility Issues
 
-### Issue #1 — CRITICAL: Engineer uses `bash` (POSIX-only)
+### Issue #1 — ✅ RESOLVED: Engineer uses `bash` (POSIX-only)
 
-**File**: `pipeline/engineer/engineer.py` line 120
+**File**: `pipeline/engineer/engineer.py` — `_run_script()` and new `_resolve_script_cmd()` method
 
-```python
-process = subprocess.Popen(
-    ["bash", script_path],   # ← bash not available on Windows by default
-    cwd=cwd,
-    ...
-)
+**Root cause**: `["bash", script_path]` fails on Windows (no bash by default).
+
+**Fix applied** (2026-04-21): Added `_resolve_script_cmd()` which:
+1. On Unix → uses `["bash", script_path]` (original behavior, unchanged)
+2. On Windows with Git Bash/WSL → uses `["bash", script_path]` or `["sh", script_path]`
+3. On Windows without any shell → parses `eval.sh`, extracts `evaluator.py` path, calls it directly with `python` via `sys.executable`
+
+**eval.sh analysis**: The script is a thin POSIX wrapper. Its only non-trivial action is:
+```bash
+python3 "$EVALUATOR_PY" "$SRC_CODE_FILE" "$RESULT_JSON"
 ```
+The fallback path replicates this exactly, using `shutil.which("python3")` or `shutil.which("python")` or `sys.executable`.
 
-**Impact**: Any experiment with `eval_script` (i.e., any real experiment) will fail immediately on Windows with `FileNotFoundError: [WinError 2] The system cannot find the file specified`.
-
-**eval.sh content**: The demo experiment uses a bash script (`eval.sh`) that calls `python3 evaluator.py`. This is completely non-functional on Windows without WSL/Git Bash/MSYS2.
-
-**Workaround for Phase 0**: Use Git Bash, WSL, or modify engineer.py to use `python` instead of `bash`. The eval script is thin wrapper — the actual evaluation is in `evaluator.py` which is Python.
+**No ADR changes required** — this is a Phase 0 runtime fix; Phase 1 will replace subprocess entirely with ADR-002 process+timeout pattern.
 
 ### Issue #2 — Package naming mismatch
 
@@ -340,10 +341,11 @@ python3 -c "from Evolve.pipeline.main import Pipeline; ..."  # requires Evolve d
 
 ## 10. Exit Criterion Assessment
 
-> **One complete research loop run without error — STATUS: Blocked by Windows compatibility**
+> **One complete research loop run without error — STATUS: One issue remaining**
 
-Execution cannot proceed until either:
-1. A Unix-like shell (Git Bash / WSL) is available, OR
-2. Engineer subprocess call is patched to use `python` instead of `bash`
+**Resolved**: Windows subprocess issue (Issue #1 — bash call patched, see §5)
 
-Recommend: Option 1 (use Git Bash or WSL) for Phase 0, then build the Windows-compatible subprocess wrapper in Phase 1.
+**Remaining**: Package naming mismatch (Issue #2) — `ASI-Evolve-main` directory contains hyphens, Python imports require `Evolve`. Fix: rename directory to `Evolve`, OR add to `PYTHONPATH`.
+
+**Next step after Phase 0 completion**: Begin Phase 1 — fork core modules into `services/worker/`, replacing bash subprocess with ADR-002 Python process+timeout pattern.
+

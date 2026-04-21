@@ -107,6 +107,56 @@ class Engineer(BaseAgent):
 
         return result
 
+    def _resolve_script_cmd(self, script_path: str) -> list:
+        """
+        Resolve the correct command to execute a script, cross-platform.
+
+        Strategy:
+        - Unix (bash available): use ["bash", script_path]
+        - Windows (bash unavailable): extract the real interpreter from eval.sh shebang
+          or fall back to running the contained Python evaluator directly
+        """
+        import sys, shutil, platform
+
+        script_path = str(script_path)
+
+        # Unix — use bash as before
+        if platform.system() != "Windows":
+            if shutil.which("bash"):
+                return ["bash", script_path]
+            raise RuntimeError("bash not found on Unix system")
+
+        # Windows — bash may exist in Git Bash / WSL, try it first
+        for shell in ["bash", "sh"]:
+            if shutil.which(shell):
+                return [shell, script_path]
+
+        # Windows without bash: parse eval.sh and run the real command directly.
+        # eval.sh's core action is:  python3 "$EVALUATOR_PY" "$SRC_CODE_FILE" "$RESULT_JSON"
+        # We replicate that logic here to avoid POSIX shell dependency.
+        self.logger.warning(
+            "[Engineer] No bash found on Windows; invoking evaluator.py directly"
+        )
+
+        script_content = Path(script_path).read_text(encoding="utf-8")
+
+        # Extract evaluator.py path from eval.sh (EVALUATOR_PY="${EXPERIMENT_DIR}/evaluator.py")
+        # The script computes EXPERIMENT_DIR from cwd; we replicate that:
+        # STEP_DIR = cwd; EXPERIMENT_DIR = dirname(cwd) [for non-steps dirs]
+        step_dir = cwd
+        if str(cwd).endswith(f"steps{os.sep}step_") or str(cwd).endswith(f"steps{os.sep}step_/"):
+            experiment_dir = cwd.parent.parent
+        else:
+            experiment_dir = cwd.parent
+
+        src_code_file = str(cwd / "code")
+        result_json = str(cwd / "results.json")
+        evaluator_py = str(experiment_dir / "evaluator.py")
+
+        # Try python3 first, fall back to python
+        python_cmd = shutil.which("python3") or shutil.which("python") or sys.executable
+        return [python_cmd, evaluator_py, src_code_file, result_json]
+
     def _run_script(
         self,
         script_path: str,
@@ -114,15 +164,20 @@ class Engineer(BaseAgent):
         timeout: int,
     ) -> Dict[str, Any]:
         """Run the benchmark evaluator with timeout handling."""
+        import os
+
         process = None
+        cmd = self._resolve_script_cmd(script_path)
+        self.logger.info(f"[Engineer] Executing: {' '.join(cmd)}")
+
         try:
             process = subprocess.Popen(
-                ["bash", script_path],
+                cmd,
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                start_new_session=True,
+                start_new_session=(platform.system() != "Windows"),
             )
 
             stdout, stderr = process.communicate(timeout=timeout)

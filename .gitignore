@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+
+# Python (for services/)
+__pycache__/
+*.py[cod]
+.env
+*.egg-info/
+.pytest_cache/
+
+# Local dev
+*.local

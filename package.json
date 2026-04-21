@@ -1,0 +1,14 @@
+{
+  "name": "ru-socrates",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@ru-socrates/web",
+    "build:types": "npm run build --workspace=@ru-socrates/types",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

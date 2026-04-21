@@ -13,16 +13,38 @@ Transform ASI-Evolve (an autonomous AI research framework) into a product that�
 
 ---
 
-## Status: Phase 0 — Code Analysis Complete; Execution Pending
+## Status: Phase 1 — Frontend User Flow Complete; Back-end Services Pending
 
-**Planning documents reviewed. ASI-Evolve source code fully analyzed (55 files).**
+**Phase 1 progress** (updated 2026-04-21):
 
-**Execution blocked by Windows compatibility** (see `planning/reports/phase0-validation.md` §5):
-1. `Engineer` uses `["bash", script_path]` — POSIX-only subprocess call
-2. `ASI-Evolve-main` directory name contains hyphens — Python imports need `Evolve` (no hyphen)
-3. `eval.sh` calls `python3` — command name invalid on Windows
+### ✅ Completed
+- `packages/types/` — shared TypeScript types (Task, Run, Result, Template, Model, Node, CognitionItem)
+- Root monorepo `package.json` with npm workspaces
+- `apps/web/` — **complete user flow**:
+  - `tasks/page.tsx` — task list + creation form → navigates to detail on submit
+  - `tasks/[id]/page.tsx` — **task detail page** with live research loop visualization:
+    - Researcher → Engineer → Analyzer step pipeline (color-coded, real-time)
+    - Animated progress bar + stats row (iteration, best score, elapsed, status)
+    - Mock SSE simulation (16-step research loop, 600–1200ms intervals)
+    - Nodes explored list with best-node highlight
+  - `results/[id]/page.tsx` — **Socratic results page**:
+    - Metrics grid (nodes, iterations, score, LLM calls)
+    - Socratic explanation section (narrative + evidence + principle quote)
+    - Best node card (motivation, analysis, code, benchmark results)
+    - Export as Markdown button
+  - `page.tsx` — home page updated with real recent-tasks section
+  - `services/taskService.ts` — mock SSE simulation implemented (16-step demo loop)
+  - `stores/taskStore.ts` — Zustand store with mock data
 
-**Resolution path**: Use Git Bash / WSL for Phase 0 execution. Phase 1 will build a Windows-compatible subprocess wrapper (replacing bash with direct Python calls).
+### 🚧 In Progress
+- `services/memory/` — FAISS + sentence-transformers
+- `services/model-gateway/` — LiteLLM wrapper
+- `services/worker/` — research loop (fork from ASI-Evolve)
+- `services/api/` — FastAPI + SQLite
+- `infra/compose/` — docker-compose.yml
+
+### 🚧 Blocked
+- Phase 0: `ASI-Evolve-main` package naming fix (Issue #2) — rename directory or set PYTHONPATH
 
 ---
 
