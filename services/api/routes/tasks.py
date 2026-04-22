@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import ExploredNode, Result, Run, Task
-from ..schemas import TaskCreate, TaskResponse
+from ..schemas import TaskCreate, TaskResponse, RunResponse
 from ..store import RunEventStore
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
