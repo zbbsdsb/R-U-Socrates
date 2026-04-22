@@ -1,0 +1,15 @@
+# R U Socrates — Combined Python dependencies
+# Install all with: pip install -r services/requirements.txt
+
+# Core API
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+sqlalchemy>=2.0.0
+pydantic>=2.6.0
+python-dotenv>=1.0.0
+
+# Worker — research pipeline
+litellm>=1.40.0
+sentence-transformers>=2.7.0
+faiss-cpu>=1.8.0
+numpy>=1.24.0

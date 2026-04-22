@@ -6,9 +6,11 @@
 
 | ID | Title | Status | Date |
 |----|-------|--------|------|
-| ADR-001 | [SQLite for Development, PostgreSQL for Production](./ADR-001-sqlite-dev-postgres-prod.md) | Accepted | 2026-04-21 |
+| ADR-001 | [SQLite for Development, PostgreSQL for Production](./ADR-001-sqlite-dev-postgres-prod.md) | **Superseded by ADR-005** | 2026-04-21 |
 | ADR-002 | [Defer Sandboxing to Phase 3](./ADR-002-defer-sandbox.md) | Accepted | 2026-04-21 |
 | ADR-003 | [Use LiteLLM Instead of Custom Model Adapters](./ADR-003-use-litellm.md) | Accepted | 2026-04-21 |
+| ADR-004 | [Local-First Architecture — Eliminate Celery/Redis/Multi-Service](./ADR-004-local-first-architecture.md) | Accepted | 2026-04-22 |
+| ADR-005 | [SQLite as Long-Term Storage Architecture](./ADR-005-sqlite-long-term.md) | Accepted | 2026-04-22 |
 
 ## When to Write an ADR
 

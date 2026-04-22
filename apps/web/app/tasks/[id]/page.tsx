@@ -1,106 +1,108 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
-import { subscribeToRun, type ProgressHandler } from "@/services/taskService";
+import { useEffect, useRef, useState } from "react";
+import {
+  getTask,
+  subscribeToRun,
+  type ApiTask,
+  type PipelineEvent,
+} from "@/services/taskService";
 import { useTaskStore } from "@/stores/taskStore";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Link from "next/link";
-import type { Run } from "@ru-socrates/types";
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
-const STEPS: Array<{
-  id: Run["step"];
-  label: string;
-  description: string;
-}> = [
-  { id: "researcher", label: "Researcher", description: "Sampling memories and generating hypotheses" },
-  { id: "engineer", label: "Engineer", description: "Writing and executing candidate code" },
-  { id: "analyzer", label: "Analyzer", description: "Analyzing results and deciding next move" },
-];
+const STAGES = [
+  { id: "researcher", label: "Researcher", description: "Generates next hypothesis" },
+  { id: "engineer",   label: "Engineer",   description: "Evaluates candidate code" },
+  { id: "analyzer",   label: "Analyzer",   description: "Extracts reusable insights" },
+] as const;
 
-// ─── Mock run data for demo ───────────────────────────────────────────────────
+type StageName = (typeof STAGES)[number]["id"];
 
-const DEMO_PROGRESS: Array<{
-  step: Run["step"];
-  progress: number;
-  iteration: number;
-  bestScore: number;
-  message: string;
-}> = [
-  { step: "researcher", progress: 10, iteration: 1, bestScore: 0.12, message: "Sampling 8 related nodes from memory..." },
-  { step: "researcher", progress: 35, iteration: 1, bestScore: 0.18, message: "Querying Cognition store for relevant papers..." },
-  { step: "researcher", progress: 65, iteration: 1, bestScore: 0.31, message: "Generating candidate code hypothesis #1..." },
-  { step: "researcher", progress: 80, iteration: 1, bestScore: 0.31, message: "Synthesizing motivation from experiment history..." },
-  { step: "engineer", progress: 10, iteration: 1, bestScore: 0.45, message: "Code candidate received. Executing in sandbox..." },
-  { step: "engineer", progress: 40, iteration: 1, bestScore: 0.52, message: "Running evaluator... score: 0.52" },
-  { step: "engineer", progress: 80, iteration: 1, bestScore: 0.52, message: "Storing node #1 in database..." },
-  { step: "analyzer", progress: 20, iteration: 1, bestScore: 0.52, message: "Comparing against best score 0.52..." },
-  { step: "analyzer", progress: 60, iteration: 1, bestScore: 0.52, message: "Converging toward optimal strategy..." },
-  { step: "researcher", progress: 20, iteration: 2, bestScore: 0.52, message: "Sampling 8 related nodes from memory..." },
-  { step: "engineer", progress: 40, iteration: 2, bestScore: 0.67, message: "Running evaluator... score: 0.67" },
-  { step: "engineer", progress: 80, iteration: 2, bestScore: 0.67, message: "Storing node #2 in database..." },
-  { step: "analyzer", progress: 80, iteration: 2, bestScore: 0.71, message: "New best score! Updating best snapshot..." },
-  { step: "researcher", progress: 80, iteration: 3, bestScore: 0.71, message: "Sampling 8 related nodes from memory..." },
-  { step: "engineer", progress: 80, iteration: 3, bestScore: 0.79, message: "Running evaluator... score: 0.79" },
-  { step: "engineer", progress: 100, iteration: 3, bestScore: 0.79, message: "Max iterations reached. Shutting down research loop." },
-];
+function eventToStage(type: string): StageName | null {
+  if (type.startsWith("researcher")) return "researcher";
+  if (type.startsWith("engineer"))   return "engineer";
+  if (type.startsWith("analyzer"))   return "analyzer";
+  return null;
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TaskDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const { id } = params;
-  const tasks = useTaskStore((s) => s.tasks);
-  const activeRuns = useTaskStore((s) => s.activeRuns);
-  const updateRunProgress = useTaskStore((s) => s.updateRunProgress);
+  const { id: taskId } = params;
 
-  const task = tasks.find((t) => t.id === id);
-  const runs = Object.values(activeRuns).filter((r) => r.taskId === id);
-  const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
+  // Remote task state
+  const [task, setTask] = useState<ApiTask | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const progressIndexRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedRef = useRef(false);
+  // Live pipeline state (from SSE)
+  const [stage, setStage] = useState<StageName | null>(null);
+  const [iteration, setIteration] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [totalNodes, setTotalNodes] = useState(0);
+  const [lastMessage, setLastMessage] = useState("Connecting to research engine…");
+  const [events, setEvents] = useState<PipelineEvent[]>([]);
+  const [runStatus, setRunStatus] = useState<"running" | "completed" | "failed">("running");
 
-  // Auto-start demo simulation when page loads for a running task
+  const unsubRef = useRef<(() => void) | null>(null);
+
+  // Fetch task details
   useEffect(() => {
-    if (!task || !latestRun || latestRun.status !== "running" || startedRef.current) return;
-    startedRef.current = true;
+    getTask(taskId)
+      .then((t) => { setTask(t); setLoading(false); })
+      .catch((e) => { setError(String(e)); setLoading(false); });
+  }, [taskId]);
 
-    // Short delay so user sees initial state before simulation begins
-    timerRef.current = setTimeout(() => {
-      const handler: ProgressHandler = (event) => {
-        updateRunProgress(event.runId, {
-          step: event.step,
-          progress: event.progress,
-          iteration: event.iteration,
-          bestScore: event.bestScore,
-        });
-      };
-
-      const unsub = subscribeToRun(latestRun.id, handler);
-
-      return () => {
-        unsub();
-        if (timerRef.current) clearTimeout(timerRef.current);
-      };
-    }, 800);
-  }, [task?.id, latestRun?.id]);
-
-  // Clean up on unmount
+  // Subscribe to SSE stream
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+    const unsub = subscribeToRun(taskId, (event: PipelineEvent) => {
+      setEvents((prev) => [...prev, event]);
+      setLastMessage(event.message || "");
 
-  if (!task) {
+      if (event.type === "iteration_started" || event.type.includes("_started")) {
+        const s = eventToStage(event.type);
+        if (s) setStage(s);
+      }
+      if (event.iteration > 0) setIteration(event.iteration);
+      if (event.best_score > 0) setBestScore(event.best_score);
+      if (event.total_nodes > 0) setTotalNodes(event.total_nodes);
+
+      if (event.type === "run_complete") {
+        setRunStatus("completed");
+        setStage(null);
+        // Refresh task from API so status reflects completion
+        getTask(taskId).then(setTask).catch(() => {});
+      }
+      if (event.type === "run_failed") {
+        setRunStatus("failed");
+        setStage(null);
+      }
+    });
+
+    unsubRef.current = unsub;
+    return () => unsub();
+  }, [taskId]);
+
+  // ─── Render states ───────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground text-sm">
+        Loading task…
+      </div>
+    );
+  }
+
+  if (error || !task) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-muted-foreground">Task not found.</p>
+        <p className="text-muted-foreground">{error ?? "Task not found."}</p>
+        <p className="text-xs text-muted-foreground">Make sure the API is running: uvicorn services.api.main:app --reload</p>
         <Link href="/tasks">
           <Button variant="outline">← Back to Tasks</Button>
         </Link>
@@ -108,20 +110,10 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const isRunning = latestRun?.status === "running";
-  const isCompleted = latestRun?.status === "completed";
-  const isFailed = latestRun?.status === "failed";
-  const isPending = !latestRun || latestRun.status === "pending";
-
-  const currentStepIndex = latestRun ? STEPS.findIndex((s) => s.id === latestRun.step) : 0;
-  const progress = latestRun?.progress ?? 0;
-  const bestScore = latestRun?.bestScore ?? 0;
-  const iteration = latestRun?.iteration ?? 0;
-
-  const elapsedMs = latestRun?.startedAt
-    ? Date.now() - new Date(latestRun.startedAt).getTime()
-    : 0;
-  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const isRunning  = runStatus === "running";
+  const isComplete = runStatus === "completed";
+  const isFailed   = runStatus === "failed";
+  const currentStageIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -130,20 +122,16 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/tasks" className="text-sm text-muted-foreground hover:text-foreground">
-              Tasks
-            </Link>
+            <Link href="/tasks" className="text-sm text-muted-foreground hover:text-foreground">Tasks</Link>
             <span className="text-muted-foreground">/</span>
-            <span className="text-sm text-foreground font-medium">{task.name}</span>
+            <span className="text-sm font-medium">{task.name}</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{task.name}</h1>
-          {task.description && (
-            <p className="text-muted-foreground mt-1">{task.description}</p>
-          )}
+          <p className="text-muted-foreground mt-1">{task.description}</p>
         </div>
-        <div className="text-right text-sm text-muted-foreground">
-          <div>Template: {task.templateId}</div>
-          <div>Model: {task.config?.model ?? "default"}</div>
+        <div className="text-right text-sm text-muted-foreground shrink-0">
+          <div>Model: {task.model}</div>
+          <div>Max iterations: {task.max_iterations}</div>
         </div>
       </div>
 
@@ -151,51 +139,36 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
       {isRunning && (
         <div className="bg-blue-50 border border-blue-200 rounded-md px-4 py-3 text-sm text-blue-900 flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-          Simulation running — watching live Researcher → Engineer → Analyzer loop
-        </div>
-      )}
-      {isPending && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md px-4 py-3 text-sm text-yellow-900">
-          This task is queued. Simulation will begin shortly.
+          Research loop running — Researcher → Engineer → Analyzer
         </div>
       )}
       {isFailed && (
         <div className="bg-red-50 border border-red-200 rounded-md px-4 py-3 text-sm text-red-900">
-          Task failed{latestRun.error ? `: ${latestRun.error}` : ""}.
+          Run failed. Check that your API key is set and the model is reachable.
         </div>
       )}
 
-      {/* Research Loop Visualization */}
+      {/* Stage pipeline */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Research Loop</h2>
-
-        {/* Step pipeline */}
         <div className="flex items-center gap-0">
-          {STEPS.map((step, i) => {
-            const isActive = i === currentStepIndex && isRunning;
-            const isPast = i < currentStepIndex;
-            const isDone = isPast || (isCompleted && i <= currentStepIndex);
-
+          {STAGES.map((s, i) => {
+            const isActive = i === currentStageIdx && isRunning;
+            const isDone   = i < currentStageIdx || isComplete;
             return (
-              <div key={step.id} className="flex items-center flex-1">
-                <div
-                  className={[
-                    "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
-                    isActive
-                      ? "border-blue-500 bg-blue-50 text-blue-900"
-                      : isDone
-                      ? "border-green-300 bg-green-50 text-green-900"
-                      : "border-border bg-background text-muted-foreground",
-                  ].join(" ")}
-                >
-                  <div className="font-medium">{step.label}</div>
-                  {isActive && (
-                    <div className="text-xs mt-0.5 opacity-70">{step.description}</div>
-                  )}
+              <div key={s.id} className="flex items-center flex-1">
+                <div className={[
+                  "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
+                  isActive ? "border-blue-500 bg-blue-50 text-blue-900" :
+                  isDone   ? "border-green-300 bg-green-50 text-green-900" :
+                             "border-border bg-background text-muted-foreground",
+                ].join(" ")}>
+                  <div className="font-medium">{s.label}</div>
+                  {isActive && <div className="text-xs mt-0.5 opacity-70">{s.description}</div>}
                 </div>
-                {i < STEPS.length - 1 && (
-                  <div className="w-4 flex-shrink-0 flex items-center justify-center text-muted-foreground">
-                    <span className={isDone || isActive ? "text-green-500" : ""}>→</span>
+                {i < STAGES.length - 1 && (
+                  <div className="w-6 flex-shrink-0 flex items-center justify-center">
+                    <span className={isDone || isActive ? "text-green-500" : "text-muted-foreground"}>→</span>
                   </div>
                 )}
               </div>
@@ -203,105 +176,85 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           })}
         </div>
 
-        {/* Progress bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Overall progress</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Iteration", value: iteration },
+            { label: "Iteration",  value: iteration > 0 ? `${iteration} / ${task.max_iterations}` : "—" },
             { label: "Best Score", value: bestScore > 0 ? `${(bestScore * 100).toFixed(1)}%` : "—" },
-            { label: "Elapsed", value: isRunning ? `${elapsedSec}s` : "—" },
-            { label: "Status", value: latestRun?.status ?? "no run" },
+            { label: "Nodes",      value: totalNodes > 0 ? totalNodes : "—" },
+            { label: "Status",     value: runStatus },
           ].map(({ label, value }) => (
             <Card key={label}>
               <CardHeader className="pb-1">
                 <div className="text-xs text-muted-foreground">{label}</div>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="text-lg font-semibold">{value}</div>
+                <div className="text-lg font-semibold">{String(value)}</div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Current message */}
-        {isRunning && (
-          <div className="border rounded-md px-4 py-3 text-sm font-mono bg-muted/30">
-            {progressIndexRef.current < DEMO_PROGRESS.length
-              ? `> ${DEMO_PROGRESS[Math.min(progressIndexRef.current, DEMO_PROGRESS.length - 1)].message}`
-              : "> Waiting for next step..."}
-          </div>
-        )}
-      </div>
-
-      {/* Nodes explored */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Nodes Explored</h2>
-        <div className="space-y-2">
-          {[3, 2, 1].map((n) => {
-            const score = n === 3 ? 0.79 : n === 2 ? 0.67 : 0.52;
-            const isBest = n === 3;
-            return (
-              <div
-                key={n}
-                className={[
-                  "border rounded-md px-4 py-3 flex items-center justify-between",
-                  isBest ? "border-green-400 bg-green-50" : "border-border",
-                ].join(" ")}
-              >
-                <div className="flex items-center gap-3">
-                  {isBest && (
-                    <span className="text-xs font-bold text-green-700 bg-green-200 px-1.5 py-0.5 rounded">
-                      BEST
-                    </span>
-                  )}
-                  <span className="text-sm font-medium">Node #{n}</span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    iteration {n}
-                  </span>
-                </div>
-                <span className={`text-sm font-semibold ${isBest ? "text-green-700" : "text-muted-foreground"}`}>
-                  {score.toFixed(3)}
-                </span>
+        {/* Live message log */}
+        <div className="border rounded-md bg-muted/20 p-3 font-mono text-xs space-y-0.5 max-h-48 overflow-y-auto">
+          {events.length === 0 ? (
+            <div className="text-muted-foreground">&gt; {lastMessage}</div>
+          ) : (
+            events.slice(-30).map((e, i) => (
+              <div key={i} className={[
+                "leading-relaxed",
+                e.type === "run_complete" ? "text-green-700 font-bold" :
+                e.type === "run_failed"   ? "text-red-600 font-bold" :
+                e.type.endsWith("_failed") ? "text-yellow-700" :
+                "text-foreground",
+              ].join(" ")}>
+                <span className="text-muted-foreground mr-2">[{e.type}]</span>
+                {e.message}
+                {e.eval_score > 0 && (
+                  <span className="ml-2 text-blue-700">score={e.eval_score.toFixed(4)}</span>
+                )}
               </div>
-            );
-          })}
-          {iteration === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-md">
-              No nodes generated yet. Simulation will begin shortly.
-            </div>
+            ))
           )}
         </div>
       </div>
 
+      {/* Analyst insights — show from analyzer events */}
+      {events.filter(e => e.type === "analyzer_complete" && e.analysis).length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Insights So Far</h2>
+          <div className="space-y-2">
+            {events
+              .filter(e => e.type === "analyzer_complete" && e.analysis)
+              .map((e, i) => (
+                <div key={i} className="border rounded-md p-3 text-sm bg-background">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Iteration {e.iteration} — Analyzer
+                  </div>
+                  <p className="leading-relaxed text-foreground line-clamp-4">{e.analysis}</p>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex gap-3">
-        {isCompleted && (
-          <Link href={`/results/${task.id}`}>
+        {isComplete && (
+          <Link href={`/results/${taskId}`}>
             <Button size="lg">View Results →</Button>
           </Link>
         )}
         {isRunning && (
-          <Button variant="outline" size="lg" disabled>
-            Cancelling... (not implemented)
-          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            Research in progress…
+          </div>
         )}
-        {!isRunning && !isCompleted && (
-          <Button size="lg" disabled>
-            Task {task.status}
-          </Button>
+        {isFailed && (
+          <Link href="/tasks">
+            <Button variant="outline">← Back to Tasks</Button>
+          </Link>
         )}
       </div>
     </div>

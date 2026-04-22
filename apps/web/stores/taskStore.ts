@@ -1,113 +1,104 @@
+/**
+ * taskStore — Zustand store for UI state only.
+ *
+ * This store holds UI state (selected task, active run progress).
+ * It does NOT hold mock data — all data comes from the real API via taskService.
+ *
+ * SSE events from the pipeline are merged here as they arrive,
+ * driving real-time UI updates.
+ */
+
 import { create } from "zustand";
-import type { Task, Run } from "@ru-socrates/types";
+import type { PipelineEvent } from "@/services/taskService";
 
-// ─── Mock seed data ────────────────────────────────────────────────────────────
+// ─── Run progress state (derived from SSE events) ─────────────────────────────
 
-const MOCK_TASKS: Task[] = [
-  {
-    id: "task-001",
-    name: "Sort Algorithm Optimization",
-    description: "Optimize quicksort for partially sorted arrays",
-    templateId: "code-optimization",
-    status: "completed",
-    config: { model: "gpt-4o", maxNodes: 20 },
-    createdAt: "2026-04-20T10:00:00Z",
-    updatedAt: "2026-04-20T10:35:00Z",
-  },
-  {
-    id: "task-002",
-    name: "Cache Invalidation Strategy",
-    description: "Design a cache invalidation strategy for a write-heavy workload",
-    templateId: "architecture-design",
-    status: "running",
-    config: { model: "deepseek-chat", maxNodes: 15 },
-    createdAt: "2026-04-21T08:00:00Z",
-    updatedAt: "2026-04-21T08:22:00Z",
-  },
-  {
-    id: "task-003",
-    name: "Binary Search Bug Fix",
-    description: "Fix off-by-one error in boundary condition handling",
-    templateId: "bug-fixing",
-    status: "failed",
-    config: { model: "gpt-4o", maxNodes: 5 },
-    createdAt: "2026-04-19T14:00:00Z",
-    updatedAt: "2026-04-19T14:10:00Z",
-  },
-];
-
-const MOCK_RUNS: Record<string, Run[]> = {
-  "task-001": [
-    {
-      id: "run-001",
-      taskId: "task-001",
-      status: "completed",
-      step: "idle",
-      progress: 100,
-      bestScore: 0.94,
-      bestNodeId: "node-007",
-      iteration: 12,
-      startedAt: "2026-04-20T10:00:00Z",
-      completedAt: "2026-04-20T10:35:00Z",
-      createdAt: "2026-04-20T10:00:00Z",
-    },
-  ],
-  "task-002": [
-    {
-      id: "run-002",
-      taskId: "task-002",
-      status: "running",
-      step: "engineer",
-      progress: 60,
-      bestScore: 0.71,
-      bestNodeId: "node-003",
-      iteration: 4,
-      startedAt: "2026-04-21T08:00:00Z",
-      createdAt: "2026-04-21T08:00:00Z",
-    },
-  ],
-};
+export interface RunProgress {
+  runId: string;
+  taskId: string;
+  status: "running" | "completed" | "failed";
+  currentStage: "idle" | "researcher" | "engineer" | "analyzer";
+  iteration: number;
+  bestScore: number;
+  totalNodes: number;
+  lastMessage: string;
+  lastEvent: PipelineEvent | null;
+  events: PipelineEvent[];
+}
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 interface TaskStore {
-  tasks: Task[];
   selectedTaskId: string | null;
-  activeRuns: Record<string, Run>;
+  runProgress: Record<string, RunProgress>; // keyed by taskId
 
   // Actions
   setSelectedTask: (id: string | null) => void;
-  getSelectedTask: () => Task | null;
-  getRunsForTask: (taskId: string) => Run[];
-  updateRunProgress: (runId: string, run: Partial<Run>) => void;
+  initRunProgress: (taskId: string, runId: string) => void;
+  applyPipelineEvent: (taskId: string, event: PipelineEvent) => void;
+  getRunProgress: (taskId: string) => RunProgress | null;
+}
+
+function eventToStage(eventType: string): RunProgress["currentStage"] {
+  if (eventType.startsWith("researcher")) return "researcher";
+  if (eventType.startsWith("engineer")) return "engineer";
+  if (eventType.startsWith("analyzer")) return "analyzer";
+  return "idle";
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
-  tasks: MOCK_TASKS,
   selectedTaskId: null,
-  activeRuns: Object.fromEntries(
-    Object.entries(MOCK_RUNS).flatMap(([, runs]) =>
-      runs.map((r) => [r.id, r])
-    )
-  ),
+  runProgress: {},
 
   setSelectedTask: (id) => set({ selectedTaskId: id }),
 
-  getSelectedTask: () => {
-    const { tasks, selectedTaskId } = get();
-    return tasks.find((t) => t.id === selectedTaskId) ?? null;
-  },
-
-  getRunsForTask: (taskId) => {
-    const { activeRuns } = get();
-    return Object.values(activeRuns).filter((r) => r.taskId === taskId);
-  },
-
-  updateRunProgress: (runId, update) =>
+  initRunProgress: (taskId, runId) =>
     set((state) => ({
-      activeRuns: {
-        ...state.activeRuns,
-        [runId]: { ...state.activeRuns[runId], ...update },
+      runProgress: {
+        ...state.runProgress,
+        [taskId]: {
+          runId,
+          taskId,
+          status: "running",
+          currentStage: "idle",
+          iteration: 0,
+          bestScore: 0,
+          totalNodes: 0,
+          lastMessage: "Starting research loop…",
+          lastEvent: null,
+          events: [],
+        },
       },
     })),
+
+  applyPipelineEvent: (taskId, event) =>
+    set((state) => {
+      const prev = state.runProgress[taskId];
+      if (!prev) return state;
+
+      const status: RunProgress["status"] =
+        event.type === "run_complete"
+          ? "completed"
+          : event.type === "run_failed"
+          ? "failed"
+          : "running";
+
+      const updated: RunProgress = {
+        ...prev,
+        status,
+        currentStage: eventToStage(event.type),
+        iteration: event.iteration > 0 ? event.iteration : prev.iteration,
+        bestScore: event.best_score > prev.bestScore ? event.best_score : prev.bestScore,
+        totalNodes: event.total_nodes > 0 ? event.total_nodes : prev.totalNodes,
+        lastMessage: event.message || prev.lastMessage,
+        lastEvent: event,
+        events: [...prev.events, event],
+      };
+
+      return {
+        runProgress: { ...state.runProgress, [taskId]: updated },
+      };
+    }),
+
+  getRunProgress: (taskId) => get().runProgress[taskId] ?? null,
 }));

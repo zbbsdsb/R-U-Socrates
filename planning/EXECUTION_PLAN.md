@@ -7,261 +7,218 @@
 
 ## Project Vision
 
-Transform ASI-Evolve (an autonomous AI research framework) into a product that普通用户 can understand, run, verify, and publish results from — via a Socratic human-AI dialogue workflow.
+> "普通人也能亲眼看懂的研究引擎。真正稀缺的不是生成创意，而是把研究过程从黑箱里拿出来，交还给用户判断。"
 
-**Core loop**: User poses a question → System autonomously runs research experiments → Returns Socratic-style explanation with evidence.
+Transform ASI-Evolve (an autonomous AI research framework) into a **local-first research tool** where any person can pose a real research question, watch the reasoning process unfold in real time, and receive a verifiable, publishable result — without any black boxes.
+
+**Product principles**:
+1. **Transparency over conclusions** — users see the reasoning path, not a summary
+2. **User is the judge** — system shows evidence and trade-offs, never decides for the user
+3. **Zero mock** — every user-facing feature connects to real data
 
 ---
 
-## Status: Phase 1 — Frontend User Flow Complete; Back-end Services Pending
+## Architecture (as of 2026-04-22)
 
-**Phase 1 progress** (updated 2026-04-21):
+**Two processes. No queue. No containers required for development.**
 
-### ✅ Completed
-- `packages/types/` — shared TypeScript types (Task, Run, Result, Template, Model, Node, CognitionItem)
-- Root monorepo `package.json` with npm workspaces
-- `apps/web/` — **complete user flow**:
-  - `tasks/page.tsx` — task list + creation form → navigates to detail on submit
-  - `tasks/[id]/page.tsx` — **task detail page** with live research loop visualization:
-    - Researcher → Engineer → Analyzer step pipeline (color-coded, real-time)
-    - Animated progress bar + stats row (iteration, best score, elapsed, status)
-    - Mock SSE simulation (16-step research loop, 600–1200ms intervals)
-    - Nodes explored list with best-node highlight
-  - `results/[id]/page.tsx` — **Socratic results page**:
-    - Metrics grid (nodes, iterations, score, LLM calls)
-    - Socratic explanation section (narrative + evidence + principle quote)
-    - Best node card (motivation, analysis, code, benchmark results)
-    - Export as Markdown button
-  - `page.tsx` — home page updated with real recent-tasks section
-  - `services/taskService.ts` — mock SSE simulation implemented (16-step demo loop)
-  - `stores/taskStore.ts` — Zustand store with mock data
+```
+Browser (localhost:3000)
+        │  fetch / EventSource (SSE)
+        ▼
+  Next.js frontend
+        │
+        ▼
+  FastAPI (localhost:8000)
+        │  asyncio BackgroundTasks
+        ▼
+  services/worker/  ← Python package, imported directly (NOT a separate service)
+        ├── pipeline.py
+        ├── researcher.py   (LiteLLM)
+        ├── engineer.py     (subprocess, Python-native)
+        └── analyzer.py     (LiteLLM)
+        │
+        ▼
+  SQLite (./data/rus.db) + FAISS (./data/faiss/)
+```
+
+**Key ADRs**:
+- ADR-004: Local-first — Redis, Celery, Docker Compose eliminated from dev stack
+- ADR-005: SQLite is long-term architecture, not a temporary compromise
+- ADR-003: LiteLLM as the unified LLM interface
+- ADR-002: No sandbox in Stage 1 — direct Python subprocess with timeout
+
+---
+
+## Current Status (2026-04-22)
+
+### ✅ Complete
+- `packages/types/` — shared TypeScript types
+- `apps/web/` — frontend with full user flow, **zero mock**:
+  - `services/taskService.ts` — real API client, `EventSource` SSE, `PipelineEvent` mirroring backend schema
+  - `stores/taskStore.ts` — UI-only state, SSE-driven
+  - `app/tasks/page.tsx` — real `listTasks()` + `createTask()`
+  - `app/tasks/[id]/page.tsx` — real SSE subscription, stage pipeline, live log
+  - `app/results/[id]/page.tsx` — real `getResult()` + Markdown export
+  - `app/page.tsx` — home page
+- Planning documents: all 5 ADRs written, architecture finalized
 
 ### 🚧 In Progress
-- `services/memory/` — FAISS + sentence-transformers
-- `services/model-gateway/` — LiteLLM wrapper
-- `services/worker/` — research loop (fork from ASI-Evolve)
-- `services/api/` — FastAPI + SQLite
-- `infra/compose/` — docker-compose.yml
+- Step 2: `services/worker/` — fork ASI-Evolve into a Python package
 
-### 🚧 Blocked
-- Phase 0: `ASI-Evolve-main` package naming fix (Issue #2) — rename directory or set PYTHONPATH
+### ⏳ Pending
+- Step 3: `services/api/` — FastAPI + SSE endpoint (depends on Step 2)
+- `services/` root `requirements.txt` — consolidate all Python dependencies
 
 ---
 
-## Development Principle
+## Build Order
 
-**Docs first, then code.**
-
-Every implementation session follows:
-1. Update this document with decisions made
-2. Write or update any relevant ADR
-3. Only then write code
-
----
-
-## Phased Roadmap
-
-### Phase 0 — Upstream Validation *(~1 week)*
-
-> ⚠️ **Windows users**: Phase 0 execution requires Git Bash, WSL, or a Unix-like shell.
-> Engineer uses `bash script.sh` for evaluation (POSIX-only). See `planning/reports/phase0-validation.md` §5.
-
-**Goal**: Run ASI-Evolve locally, understand actual behavior, correct planning assumptions.
-
-| Task | Output |
-|------|--------|
-| Read `pipeline/main.py` in depth | Annotated flow: `Pipeline.run_step()` → Researcher → Engineer → Analyzer |
-| Read `utils/structures.py` | Full list of Node / CognitionItem field definitions |
-| Configure `config.yaml` | Working config with one accessible LLM (OpenAI or Ollama) |
-| Execute one complete experiment | Console output + metrics, confirm闭环 |
-| Inventory real dependencies | `pip freeze` vs actual imports — find discrepancies |
-
-**Exit criterion**: One complete research loop runs without error, producing a valid result.
-
-**Key output**: `planning/reports/phase0-validation.md` — lessons learned, corrected assumptions.
-
----
-
-### Phase 1 — Monorepo Skeleton + Core Services *(~2–3 weeks)*
-
-**Goal**: A runnable system without a frontend. API + Worker + Memory + ModelGateway.
-
-**Build order (dependency-driven)**:
+Dependencies drive the order. Each step is a complete, runnable unit.
 
 ```
-packages/types/          ← Zero dependencies, defined first
+Step 1: packages/types/          ✅ Done
     ↓
-services/memory/         ← FAISS + sentence-transformers, no external DB
-    ↓
-services/model-gateway/  ← LiteLLM wrapper (NOT custom adapters)
-    ↓
-services/worker/         ← Research loop: fork of ASI-Evolve pipeline
-    ↓
-services/api/            ← FastAPI + Celery + Redis
-    ↓
-infra/compose/           ← docker-compose tying all services
+Step 2: services/worker/         ← Fork ASI-Evolve pipeline
+    ↓                               Pure Python package, no HTTP, no queue
+Step 3: services/api/            ← FastAPI wrapping worker
+    ↓                               SSE endpoint streams worker events
+Step 4: apps/web/ (real)         ← Remove mock, connect EventSource to SSE
 ```
 
-**Intentional deferrals** (Phase 1):
-- PostgreSQL → **SQLite** (SQLAlchemy interface, swap cost ≈ zero)
-- Docker sandbox → **Process exec with timeout** (security acceptable for MVP in controlled env)
-- S3 storage → **Local filesystem**
-- Kubernetes → **Docker Compose only**
-
-**Exit criterion**: `POST /api/tasks` → task queued → worker executes → `GET /api/tasks/{id}/results` returns structured output.
+**What is NOT in the build order** (eliminated per ADR-004):
+- ~~services/memory/~~ → absorbed into `services/worker/memory.py`
+- ~~services/model-gateway/~~ → absorbed into `services/worker/llm.py` (LiteLLM wrapper)
+- ~~infra/compose/~~ → not needed until Stage 2 (desktop packaging)
 
 ---
 
-### Phase 2 — Frontend + Real User Flow *(~3–4 weeks)*
+## Step 2 Detail: services/worker/
 
-**Goal**: A web UI where a real user can complete the full workflow.
-
-Priority pages:
-1. **Task Creation** — select template → fill parameters → submit
-2. **Run Monitor** — real-time progress via SSE (Researcher / Engineer / Analyzer stages)
-3. **Result Display** — Socratic-style explanation, evidence list, downloadable report
-
-Secondary:
-- Template library browser
-- Settings (model selection, API key config)
-
-**Exit criterion**: A user with no ML background can create a task and read a result.
-
----
-
-### Phase 3 — Hardening & Real Deployment *(~2–3 weeks)*
-
-This is where the deferred items from Phase 1 get addressed:
-
-| Upgrade | Trigger |
-|---------|---------|
-| SQLite → PostgreSQL | Multi-user write concurrency needed |
-| Process exec → Docker sandbox | Production / untrusted user input |
-| Local FS → S3-compatible | Cloud deployment, multi-instance |
-| Docker Compose → Kubernetes | Scale beyond single node |
-
-**Trigger-based, not date-based.** Only execute when a real need exists.
-
----
-
-## Dependency Graph
+**Goal**: A Python package that can run the full research loop and yield structured events.
 
 ```
-packages/types          ← all other packages/services depend on this
-      ↓
-services/memory         ← uses types; FAISS + sentence-transformers
-      ↓                          ↑
-services/model-gateway  ← uses types; LiteLLM
-      ↓                          ↑
-services/worker         ← uses types + memory + model-gateway
-      ↓
-services/api           ← uses types + worker; FastAPI + Celery
-      ↓
-apps/web               ← uses types; Next.js
-      ↓
-infra/compose          ← orchestrates all services
+services/worker/
+├── __init__.py
+├── pipeline.py        — orchestrates the loop; async generator yielding PipelineEvent
+├── researcher.py      — adapted from ASI-Evolve; calls LiteLLM
+├── engineer.py        — adapted from ASI-Evolve; subprocess with Python fallback (Windows fix)
+├── analyzer.py        — adapted from ASI-Evolve; calls LiteLLM
+├── memory.py          — FAISS + sentence-transformers (from ASI-Evolve utils/)
+├── models.py          — Pydantic models: Node, CognitionItem, PipelineEvent, RunConfig
+├── config.py          — env-driven config (LiteLLM model, temperature, max_iterations)
+└── requirements.txt
+```
+
+**Key design**: `pipeline.py` exposes an async generator:
+
+```python
+async def run(config: RunConfig) -> AsyncGenerator[PipelineEvent, None]:
+    """
+    Yields PipelineEvent for every meaningful step:
+    - researcher_start, researcher_done
+    - engineer_start, engineer_done
+    - analyzer_start, analyzer_done
+    - iteration_complete (with score, best_node)
+    - run_complete (with final result)
+    """
+```
+
+FastAPI consumes this generator and forwards events as SSE. Frontend receives them via `EventSource`.
+
+---
+
+## Step 3 Detail: services/api/
+
+**Goal**: Minimal FastAPI app. No auth, no queue, no complexity.
+
+```
+services/api/
+├── main.py            — FastAPI app, CORS, lifespan
+├── routes/
+│   ├── tasks.py       — POST /tasks, GET /tasks/{id}, GET /tasks/{id}/stream (SSE)
+│   └── results.py     — GET /results/{task_id}, GET /results/{task_id}/export
+├── database.py        — SQLAlchemy + SQLite, WAL mode
+├── models.py          — ORM models: Task, Run, Node, Result
+├── schemas.py         — Pydantic request/response schemas
+└── requirements.txt
+```
+
+**SSE endpoint**:
+
+```python
+@router.get("/tasks/{task_id}/stream")
+async def stream_task(task_id: str):
+    async def event_generator():
+        async for event in worker.pipeline.run(config):
+            yield f"data: {event.model_dump_json()}\n\n"
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 ```
 
 ---
 
-## Technology Stacks
+## Step 4 Detail: apps/web/ (real data)
 
-### Phase 1–2 (Confirmed)
+**Status**: ✅ Complete (2026-04-22)
 
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| Frontend | Next.js 14, React 18, TypeScript 5, TailwindCSS, Shadcn/UI, Zustand | |
-| Backend | Python 3.10+, FastAPI 0.100+, SQLAlchemy 2.0+ | |
-| Database (Phase 1) | SQLite (dev) → PostgreSQL 15+ (Phase 3) | |
-| Queue (Phase 1) | Redis 7+ + Celery 5+ | |
-| Vector store | FAISS 1.7+ + sentence-transformers (all-MiniLM-L6-v2) | |
-| LLM interface | **LiteLLM** (NOT custom adapters) | ADR-003 |
-| Sandboxing (Phase 1) | Process exec + timeout + ulimit | ADR-002 |
-| Container | Docker 20+, Docker Compose 2.0+ | Phase 1 Compose only |
+All mock code eliminated. Every UI component connects to real API endpoints:
 
-### Phase 3 (Deferred)
-
-| Layer | Technology | Trigger |
-|-------|-----------|---------|
-| Storage | S3-compatible (MinIO / AWS S3) | Cloud deployment |
-| Sandbox | Docker containers or gVisor | Untrusted input |
-| Orchestration | Kubernetes | Multi-node scale |
-| Observability | Prometheus + Grafana | Production monitoring |
+| File | What it does |
+|------|-------------|
+| `services/taskService.ts` | Real `fetch` calls to FastAPI, `EventSource` SSE, `PipelineEvent` interface |
+| `stores/taskStore.ts` | UI-only state; `applyPipelineEvent()` merges SSE events |
+| `app/tasks/page.tsx` | `listTasks()` + `createTask()`; error states when API offline |
+| `app/tasks/[id]/page.tsx` | `getTask()` + `subscribeToRun()`; stage pipeline; live message log |
+| `app/results/[id]/page.tsx` | `getResult()` + `getResultMarkdown()`; Markdown export |
 
 ---
 
-## Module Inventory (Reference: MODULE_BREAKDOWN.md)
+## Development Workflow
 
-### Will be built in Phase 1
-
-- `packages/types/` — shared TypeScript types (Task, Run, Result, Template, Model)
-- `packages/utils/` — logger, error handler, validator
-- `services/memory/` — CognitionStore, ExperimentDatabase, VectorIndex, KnowledgeDistiller
-- `services/model-gateway/` — LiteLLM wrapper, cost tracking
-- `services/worker/executor.py` — TaskExecutor, RetryManager
-- `services/worker/researcher.py` — adapted from ASI-Evolve
-- `services/worker/engineer.py` — adapted from ASI-Evolve
-- `services/worker/analyzer.py` — adapted from ASI-Evolve
-- `services/api/` — FastAPI routes + SQLAlchemy models
-
-### Will be built in Phase 2
-
-- `apps/web/` — Next.js pages and components
-- `apps/web/stores/` — Zustand stores
-- `apps/web/services/` — API client services
-- `infra/compose/` — docker-compose.yml
-
-### Deferred
-
-- `services/worker/sandbox.py` — Docker/gVisor sandbox
-- `packages/adapters/` — ASI-Arch adapter
-- `apps/desktop/` — Tauri desktop app
-- `infra/kubernetes/` — K8s manifests
+1. **Before every session**: update this document with decisions made
+2. **New architectural decision**: write an ADR in `planning/ADR/`
+3. **After completing a step**: update Status section above
+4. **Zero mock rule**: if it touches user-facing UI, it connects to real data
 
 ---
 
-## API Design Summary
+## Evolution Roadmap
 
-See `planning/TECHNICAL_ARCHITECTURE.md` §4 for full endpoint spec. Key endpoints:
+| Stage | What | Trigger |
+|-------|------|---------|
+| Stage 1 (now) | Local two-process app | — |
+| Stage 2 | Tauri desktop packaging | When web app is stable |
+| Stage 3 | Litestream SQLite → S3 backup | When user asks for cloud backup |
+| Stage 4 | Multi-user: add auth + PostgreSQL option | When >1 concurrent user needed |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/tasks` | Create a new research task |
-| GET | `/api/tasks/{id}` | Get task status and progress |
-| GET | `/api/tasks/{id}/runs` | List all runs for a task |
-| GET | `/api/results/{task_id}` | Get latest result |
-| GET | `/api/results/{task_id}/export?format=md` | Export result |
-| GET | `/api/templates` | List available templates |
-| GET | `/api/templates/{id}` | Get template detail |
-| POST | `/api/templates` | Create custom template |
+**Each stage adds capability. No stage requires rewriting the previous stage.**
 
 ---
 
-## Upstream Reference Projects
+## Upstream Reference
 
-### ASI-Evolve (primary kernel)
-- **Location**: `prepare/ASI-Evolve-main/`
-- **Strength**: Modular, runs locally (FAISS + sentence-transformers), 7 core dependencies
-- **Core file**: `pipeline/main.py` — `Pipeline.run_step()` → 4-stage闭环
-- **Adaptation**: Fork the pipeline into `services/worker/`, replace hardcoded config with env-driven config
+### ASI-Evolve (`prepare/ASI-Evolve-main/`)
+- **Core**: `pipeline/main.py` → `Pipeline.run_step()` four-stage closed loop
+- **Adapt**: fork into `services/worker/`, replace bash subprocess with Python, make async
+- **Key files**: `pipeline/researcher.py`, `pipeline/engineer.py`, `pipeline/analyzer.py`, `utils/`
 
-### ASI-Arch (specialized capability)
-- **Location**: `prepare/ASI-Arch-main/`
-- **Strength**: 1773 experiments, 106 SOTA architectures, linear attention discovery
-- **Constraint**: Requires external MongoDB + OpenSearch (high reproduction barrier)
-- **Adaptation**: Wrap as an adapter in `packages/adapters/` — Phase 3 at earliest
+### ASI-Arch (`prepare/ASI-Arch-main/`)
+- Requires external MongoDB + OpenSearch — Stage 4 earliest
 
 ---
 
 ## License
 
-- **Core layer** (ASI-Evolve fork): Apache-2.0
-- **Application layer** (web shell, new adapters, templates): PolyForm Noncommercial (source-available, not open-source)
+- Core layer (ASI-Evolve fork): Apache-2.0
+- Application layer (web UI, templates, new adapters): PolyForm Noncommercial
 
 ---
 
 ## Change Log
 
-| Date | Change | Author |
-|------|--------|--------|
-| 2026-04-21 | Initial execution plan created. MVP-first strategy: Phase 0 upstream validation → Phase 1 monorepo skeleton → Phase 2 frontend → Phase 3 hardening. Key ADRs: SQLite in Phase 1 (ADR-001), no sandbox in Phase 1 (ADR-002), LiteLLM over custom adapters (ADR-003). | AI |
+| Date | Change |
+|------|--------|
+| 2026-04-21 | Initial plan: MVP-first, Phase 0→1→2→3. ADR-001/002/003. |
+| 2026-04-21 | Phase 1 frontend skeleton complete (mock SSE). |
+| 2026-04-22 | **Architecture overhaul**: local-first, eliminate Redis/Celery/multi-service. ADR-004/005. New build order: worker → api → frontend (real). |
+| 2026-04-22 | **Frontend zero-mock complete**: taskService, taskStore, all pages rewritten to real API/SSE. EXECUTION_PLAN.md updated. |
