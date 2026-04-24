@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 import litellm
 from litellm import completion
 
-from .models import LLMResponse  # noqa: we define LLMResponse here
+
 
 logger = logging.getLogger(__name__)
 

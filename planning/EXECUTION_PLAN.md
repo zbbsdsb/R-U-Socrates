@@ -50,7 +50,7 @@ Browser (localhost:3000)
 
 ---
 
-## Current Status (2026-04-22)
+## Current Status (2026-04-23)
 
 ### ✅ Complete
 - `packages/types/` — shared TypeScript types
@@ -61,14 +61,19 @@ Browser (localhost:3000)
   - `app/tasks/[id]/page.tsx` — real SSE subscription, stage pipeline, live log
   - `app/results/[id]/page.tsx` — real `getResult()` + Markdown export
   - `app/page.tsx` — home page
-- Planning documents: all 5 ADRs written, architecture finalized
+- `services/worker/` — full pipeline: Researcher / Engineer / Analyzer, `PipelineEvent` async generator, LiteLLM, FAISS memory, UCB1 sampling
+- `services/api/` — FastAPI + SQLite WAL + SSE endpoint + background pipeline launcher
+- `services/worker/evaluator.py` — MVP evaluator: `user_defined_score()` > execution scoring with test harness
+- Planning documents: 5 ADRs written, architecture finalized
+- Bug fixes (2026-04-23): removed spurious `from .models import LLMResponse` in `llm.py`; replaced deprecated `get_event_loop()` with `asyncio.get_running_loop()` in `pipeline.py`
 
-### 🚧 In Progress
-- Step 2: `services/worker/` — fork ASI-Evolve into a Python package
+### 🚧 Ready to Run
+- All Python dependencies installed (`fastapi`, `uvicorn`, `litellm`, `sentence-transformers`, `faiss-cpu`, `numpy`)
+- Missing only: `OPENAI_API_KEY` (or equivalent LiteLLM-compatible key) in `services/api/.env`
 
 ### ⏳ Pending
-- Step 3: `services/api/` — FastAPI + SSE endpoint (depends on Step 2)
-- `services/` root `requirements.txt` — consolidate all Python dependencies
+- Full end-to-end integration test: FastAPI + Next.js simultaneously
+- `prepare/` cleanup (temporary upstream reference, to be removed post-fork)
 
 ---
 

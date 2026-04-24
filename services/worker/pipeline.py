@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import traceback
-from asyncio import get_event_loop
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import AsyncGenerator, Dict, List, Optional, Any
@@ -268,6 +268,9 @@ class Engineer:
 
     def _resolve_cmd(self, eval_script: str, work_dir: Path) -> List[str]:
         import platform, shutil, sys
+        from pathlib import Path
+
+        eval_p = Path(eval_script)
 
         if platform.system() != "Windows":
             return ["bash", eval_script]
@@ -276,11 +279,20 @@ class Engineer:
             if shutil.which(shell):
                 return [shell, eval_script]
 
-        # Windows without bash: run evaluator.py directly
-        python = shutil.which("python3") or shutil.which("python") or sys.executable
-        evaluator = work_dir.parent / "evaluator.py"
+        # Windows without bash: run evaluator.py directly.
+        # eval_script may be an absolute path (set by the API layer) or a
+        # relative shell script (user-provided fallback).
+        python = shutil.which("python") or sys.executable
         code_file = work_dir / "code.py"
         result_json = work_dir / "results.json"
+
+        if eval_p.is_absolute():
+            # evaluator.py path set by _run_pipeline — use it directly
+            evaluator = eval_p
+        else:
+            # User-provided relative script — copy to work_dir and run via Python
+            evaluator = work_dir / "evaluator.py"
+
         return [python, str(evaluator), str(code_file), str(result_json)]
 
     def _parse_results(self, work_dir: Path) -> Dict[str, Any]:
@@ -460,7 +472,7 @@ class Pipeline:
             base_code = context_nodes[0].code if (cfg.diff_based_evolution and context_nodes) else None
 
             try:
-                researcher_result = await get_event_loop().run_in_executor(
+                researcher_result = await asyncio.get_running_loop().run_in_executor(
                     None,
                     lambda: self.researcher.run(
                         task_description=cfg.task_description,
@@ -507,7 +519,7 @@ class Pipeline:
             )
 
             try:
-                engineer_result = await get_event_loop().run_in_executor(
+                engineer_result = await asyncio.get_running_loop().run_in_executor(
                     None,
                     lambda: self.engineer.run(
                         code=node.code,
@@ -555,7 +567,7 @@ class Pipeline:
             best_node_for_comparison = self.db.get_best()
 
             try:
-                analysis = await get_event_loop().run_in_executor(
+                analysis = await asyncio.get_running_loop().run_in_executor(
                     None,
                     lambda: self.analyzer.run(
                         code=node.code,

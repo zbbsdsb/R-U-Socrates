@@ -68,13 +68,19 @@ async def _run_pipeline(task_id: str, run_id: str, payload: TaskCreate):
     import sys, os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
+    from pathlib import Path
     from services.worker import Pipeline, RunConfig, EventType
+
+    # Resolve evaluator.py relative to the worker package
+    worker_root = Path(__file__).parent.parent.parent / "worker"
+    evaluator_path = str(worker_root / "evaluator.py")
 
     config = RunConfig(
         run_id=run_id,
         task_description=payload.description,
         model=payload.model,
         max_iterations=payload.max_iterations,
+        eval_script=evaluator_path,
     )
 
     store = RunEventStore.get(run_id)
