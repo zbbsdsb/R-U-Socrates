@@ -29,9 +29,11 @@ export default function RootLayout({
         {/* Top navigation */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-14 items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link href="/" className="text-lg font-semibold">
-                R U Socrates
+            <div className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="R U Socrates" className="h-8 w-8 rounded-md object-contain" />
+                <span className="text-lg font-semibold tracking-tight">R U Socrates</span>
               </Link>
               <nav className="hidden md:flex gap-4">
                 {NAV_LINKS.map(({ href, label }) => (
@@ -47,7 +49,7 @@ export default function RootLayout({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground hidden sm:inline">
-                Phase 1 — skeleton
+                Phase 1 — MVP
               </span>
               <div className="h-2 w-2 rounded-full bg-green-500" title="Development" />
             </div>

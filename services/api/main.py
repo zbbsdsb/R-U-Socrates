@@ -9,7 +9,16 @@ Start with:
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+
+# Load .env before any other imports
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

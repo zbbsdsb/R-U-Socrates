@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 class TaskCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., min_length=10)
-    model: str = Field(default="gpt-4o-mini")
+    model: str = Field(default="qwen-plus")
     max_iterations: int = Field(default=10, ge=1, le=100)
 
 

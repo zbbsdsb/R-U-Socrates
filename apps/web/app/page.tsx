@@ -43,26 +43,32 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Ask a question.{" "}
-          <span className="text-muted-foreground">
-            Run a thousand experiments.
-          </span>
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl">
-          R U Socrates runs autonomous research loops to find answers —
-          then explains them in plain language via Socratic dialogue.
-        </p>
-        <div className="flex gap-3">
-          <Link href="/tasks">
-            <Button size="lg">New Task</Button>
-          </Link>
-          <Link href="/templates">
-            <Button size="lg" variant="outline">
-              Browse Templates
-            </Button>
-          </Link>
+      <section className="flex items-start gap-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="R U Socrates"
+          className="mt-1 h-14 w-14 rounded-xl object-contain shrink-0"
+        />
+        <div className="space-y-3">
+          <h1 className="text-4xl font-bold tracking-tight leading-tight">
+            Ask a question.
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl leading-relaxed">
+            R U Socrates runs autonomous research loops to find answers — then
+            explains them in plain language so you can judge the evidence
+            yourself.
+          </p>
+          <div className="flex gap-3 pt-1">
+            <Link href="/tasks">
+              <Button size="lg">New Task</Button>
+            </Link>
+            <Link href="/templates">
+              <Button size="lg" variant="outline">
+                Browse Templates
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
