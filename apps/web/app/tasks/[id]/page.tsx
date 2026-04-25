@@ -1,29 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { getTask, subscribeToRun, type ApiTask, type PipelineEvent } from "@/services/taskService";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getTask, cancelTask, type ApiTask } from "@/services/taskService";
+import { useReasoningStore } from "@/stores/reasoningStore";
+import { ReasoningFeed } from "@/components/reasoning/ReasoningFeed";
 import { ScoreCard } from "@/components/ScoreCard";
 import { RunErrorCard } from "@/components/RunErrorCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import Link from "next/link";
-
-// ─── Stage config ─────────────────────────────────────────────────────────────
-
-const STAGES = [
-  { id: "researcher", label: "Researcher", description: "Generates next hypothesis" },
-  { id: "engineer",   label: "Engineer",   description: "Evaluates candidate code" },
-  { id: "analyzer",   label: "Analyzer",   description: "Extracts reusable insights" },
-] as const;
-
-type StageName = (typeof STAGES)[number]["id"];
-
-function eventToStage(type: string): StageName | null {
-  if (type.startsWith("researcher")) return "researcher";
-  if (type.startsWith("engineer"))   return "engineer";
-  if (type.startsWith("analyzer"))   return "analyzer";
-  return null;
-}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -34,19 +19,23 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [stage, setStage] = useState<StageName | null>(null);
-  const [iteration, setIteration] = useState(0);
-  const [bestScore, setBestScore] = useState(0);
-  const [totalNodes, setTotalNodes] = useState(0);
-  const [lastMessage, setLastMessage] = useState("Connecting to research engine…");
-  const [events, setEvents] = useState<PipelineEvent[]>([]);
-  const [runStatus, setRunStatus] = useState<"running" | "completed" | "failed">("running");
+  const {
+    runStatus,
+    bestScore,
+    totalNodes,
+    iterations,
+    subscribe,
+    unsubscribe,
+    reset,
+  } = useReasoningStore();
 
-  // Track previous best score and last eval event for ScoreCard
-  const [prevBestScore, setPrevBestScore] = useState(0);
-  const [lastEvalEvent, setLastEvalEvent] = useState<PipelineEvent | null>(null);
-
-  const unsubRef = useRef<(() => void) | null>(null);
+  const iterationCount = iterations.size;
+  const lastEvalEvent = useReasoningStore((s) => {
+    const iters = Array.from(s.iterations.values());
+    const last = iters[iters.length - 1];
+    return last?.engineer.status === "complete" ? last.engineer : null;
+  });
+  const prevBestScore = 0; // simplified — ScoreCard handles this
 
   // Fetch task details
   useEffect(() => {
@@ -55,47 +44,19 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
       .catch((e) => { setError(String(e)); setLoading(false); });
   }, [taskId]);
 
-  // Subscribe to SSE stream
+  // Subscribe to SSE stream via reasoning store
   useEffect(() => {
-    const unsub = subscribeToRun(taskId, (event: PipelineEvent) => {
-      setEvents((prev) => [...prev, event]);
-      setLastMessage(event.message || "");
-
-      if (event.type === "iteration_started" || event.type.includes("_started")) {
-        const s = eventToStage(event.type);
-        if (s) setStage(s);
-      }
-      if (event.iteration > 0) setIteration(event.iteration);
-      if (event.best_score > 0) {
-        // Track delta when score updates
-        setBestScore((prev) => {
-          if (event.best_score > prev) {
-            setPrevBestScore(prev);
-          }
-          return event.best_score;
-        });
-      }
-      if (event.total_nodes > 0) setTotalNodes(event.total_nodes);
-
-      // Capture the most recent engineer evaluation event
-      if (event.type === "engineer_complete" || event.type === "engineer_failed") {
-        setLastEvalEvent(event);
-      }
-
-      if (event.type === "run_complete") {
-        setRunStatus("completed");
-        setStage(null);
-        getTask(taskId).then(setTask).catch(() => {});
-      }
-      if (event.type === "run_failed") {
-        setRunStatus("failed");
-        setStage(null);
-      }
-    });
-
-    unsubRef.current = unsub;
-    return () => unsub();
+    reset(); // clear any previous state
+    subscribe(taskId);
+    return () => unsubscribe();
   }, [taskId]);
+
+  // Refresh task status when run completes
+  useEffect(() => {
+    if (runStatus === "completed") {
+      getTask(taskId).then(setTask).catch(() => {});
+    }
+  }, [runStatus]);
 
   // ─── Render states ───────────────────────────────────────────────────────────
 
@@ -124,10 +85,6 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   const isRunning  = runStatus === "running";
   const isComplete = runStatus === "completed";
   const isFailed   = runStatus === "failed";
-  const currentStageIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
-
-  // Failed event for RunErrorCard
-  const failedEvent = events.find((e) => e.type === "run_failed" || e.type.endsWith("_failed"));
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -173,16 +130,16 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
               <ScoreCard
                 currentScore={bestScore}
                 iteration={totalNodes}
-                lastEvalEvent={lastEvalEvent}
+                lastEvalEvent={lastEvalEvent ?? undefined}
                 prevBestScore={prevBestScore}
               />
             </CardContent>
           </Card>
 
-          {/* Stats grid below score card */}
+          {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Iteration", value: iteration > 0 ? `${iteration} / ${task.max_iterations}` : "—" },
+              { label: "Iteration", value: iterationCount > 0 ? `${iterationCount} / ${task.max_iterations}` : "—" },
               { label: "Nodes", value: totalNodes > 0 ? totalNodes : "—" },
             ].map(({ label, value }) => (
               <Card key={label} className="bg-muted/30">
@@ -195,118 +152,41 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
               </Card>
             ))}
           </div>
+
+          {/* Stop run button */}
+          {isRunning && (
+            <Button
+              variant="outline"
+              className="w-full text-orange-600 border-orange-200 hover:bg-orange-50"
+              onClick={async () => {
+                try {
+                  await cancelTask(taskId);
+                  unsubscribe();
+                } catch {
+                  // silently ignore
+                }
+              }}
+            >
+              ⏹ Stop Run
+            </Button>
+          )}
         </div>
 
         {/* Right: main content */}
         <div className="space-y-6">
 
-          {/* Run failed: show error card */}
+          {/* Run failed */}
           {isFailed && (
-            <RunErrorCard failedEvent={failedEvent ?? null} allEvents={events} />
+            <RunErrorCard failedEvent={null} allEvents={[]} />
           )}
 
-          {/* Stage pipeline */}
+          {/* ── Reasoning Feed ── */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Research Loop
+              Reasoning Process
             </h2>
-            <div className="flex items-center gap-0">
-              {STAGES.map((s, i) => {
-                const isActive = i === currentStageIdx && isRunning;
-                const isDone   = i < currentStageIdx || isComplete;
-                return (
-                  <div key={s.id} className="flex items-center flex-1">
-                    <div className={[
-                      "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
-                      isActive ? "border-blue-500 bg-blue-50 text-blue-900" :
-                      isDone   ? "border-green-300 bg-green-50 text-green-900" :
-                                 "border-border bg-background text-muted-foreground",
-                    ].join(" ")}>
-                      <div className="font-medium">{s.label}</div>
-                      {isActive && <div className="text-xs mt-0.5 opacity-70">{s.description}</div>}
-                    </div>
-                    {i < STAGES.length - 1 && (
-                      <div className="w-6 flex-shrink-0 flex items-center justify-center">
-                        <span className={isDone || isActive ? "text-green-500" : "text-muted-foreground"}>→</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <ReasoningFeed />
           </div>
-
-          {/* Live message log */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Event Log
-              </h2>
-              {isRunning && (
-                <div className="flex items-center gap-1.5 text-xs text-blue-600">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  Live
-                </div>
-              )}
-            </div>
-            <div className="border rounded-md bg-muted/20 font-mono text-xs max-h-64 overflow-y-auto">
-              <div className="p-3 space-y-0.5">
-                {events.length === 0 ? (
-                  <div className="text-muted-foreground">&gt; {lastMessage}</div>
-                ) : (
-                  events.slice(-40).map((e, i) => (
-                    <div
-                      key={i}
-                      className={[
-                        "leading-relaxed",
-                        e.type === "run_complete"    ? "text-green-700 font-semibold" :
-                        e.type === "run_failed"      ? "text-red-600 font-semibold" :
-                        e.type === "engineer_failed"  ? "text-orange-700" :
-                        e.type === "researcher_failed" ? "text-orange-700" :
-                        e.type.endsWith("_failed")   ? "text-yellow-700" :
-                        e.type === "engineer_complete" ? "text-blue-800" :
-                        "text-foreground",
-                      ].join(" ")}
-                    >
-                      <span className="text-muted-foreground mr-2 shrink-0">[{e.type.replace(/_/g, " ")}]</span>
-                      <span>{e.message}</span>
-                      {e.eval_score > 0 && (
-                        <span className="ml-2 text-blue-600">score={e.eval_score.toFixed(4)}</span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Analyst insights */}
-          {events.filter((e) => e.type === "analyzer_complete" && e.analysis).length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Insights So Far
-              </h2>
-              <div className="space-y-2">
-                {events
-                  .filter((e) => e.type === "analyzer_complete" && e.analysis)
-                  .map((e, i) => (
-                    <div key={i} className="border rounded-md p-3 text-sm bg-background space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          Iteration {e.iteration} — Analyzer
-                        </span>
-                        {e.eval_score > 0 && (
-                          <span className="text-xs font-medium text-blue-600 tabular-nums">
-                            eval {e.eval_score.toFixed(4)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="leading-relaxed text-foreground">{e.analysis}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

@@ -1,14 +1,15 @@
 /**
  * taskService — Real API client for R U Socrates backend.
  *
- * All calls go to FastAPI at http://localhost:8000.
- * Zero mock data — every function connects to real endpoints.
+ * All calls go to FastAPI. The base URL is read dynamically from
+ * settingsStore on every request, so changes in Settings take effect
+ * immediately without a page reload.
  *
  * SSE streaming: subscribeToRun() opens an EventSource to
  * GET /api/tasks/{taskId}/stream and forwards PipelineEvents to the handler.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { getApiBase } from "@/stores/settingsStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ export interface PipelineEvent {
 // ─── Fetch helper ─────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
@@ -122,6 +123,14 @@ export async function listRuns(taskId: string): Promise<ApiRun[]> {
   return apiFetch<ApiRun[]>(`/api/tasks/${taskId}/runs`);
 }
 
+export async function cancelTask(taskId: string): Promise<void> {
+  await apiFetch<void>(`/api/tasks/${taskId}/cancel`, { method: "POST" });
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  await apiFetch<void>(`/api/tasks/${taskId}`, { method: "DELETE" });
+}
+
 // ─── Results ─────────────────────────────────────────────────────────────────
 
 export async function getResult(taskId: string): Promise<ApiResult> {
@@ -129,7 +138,7 @@ export async function getResult(taskId: string): Promise<ApiResult> {
 }
 
 export async function getResultMarkdown(taskId: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/results/${taskId}/export`);
+  const res = await fetch(`${getApiBase()}/api/results/${taskId}/export`);
   if (!res.ok) throw new Error(`Export failed: ${res.status}`);
   return res.text();
 }
@@ -152,7 +161,7 @@ export function subscribeToRun(
   taskId: string,
   handler: PipelineEventHandler
 ): () => void {
-  const url = `${API_BASE}/api/tasks/${taskId}/stream`;
+  const url = `${getApiBase()}/api/tasks/${taskId}/stream`;
   const es = new EventSource(url);
 
   es.onmessage = (e) => {

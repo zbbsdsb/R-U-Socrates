@@ -75,6 +75,20 @@ Browser (localhost:3000)
 - Full end-to-end integration test: FastAPI + Next.js simultaneously
 - `prepare/` cleanup (temporary upstream reference, to be removed post-fork)
 
+### 🔬 Reasoning Visualization (Feature — ADR-007)
+**Plan:** `planning/REASONING_VISUALIZATION.md`
+
+Core product feature: make the AI research reasoning process transparent and legible to non-technical users.
+
+Three layers, increasing depth:
+- **L1 — Live Reasoning Feed** (~4h): Real-time SSE panel on Task Detail page. Each iteration renders as an accordion card showing Researcher motivation → Engineer code → Analyzer score + stdout. Shiki syntax highlighting. Auto-scroll + "New events" button.
+- **L2 — Reasoning Tree** (~3h): SVG tree of explored nodes with parent/child relationships reconstructed from SSE events. Zero backend changes. Alive / pruned / best states visually distinct.
+- **L3 — Score Journey** (~2h): Iteration-over-iteration score chart with `recharts`. "New best" annotations, hover tooltips, responsive.
+
+**Backend prerequisite (1-line fix):** Add `event.type = "researcher"|"engineer"|"analyzer"` to SSE emission in `pipeline.py`. See `planning/ADR/ADR-007-reasoning-visualization.md`.
+
+**File manifest:** `components/reasoning/` (8 components) + `stores/reasoningStore.ts` (Zustand).
+
 ---
 
 ## Build Order
@@ -227,3 +241,4 @@ All mock code eliminated. Every UI component connects to real API endpoints:
 | 2026-04-21 | Phase 1 frontend skeleton complete (mock SSE). |
 | 2026-04-22 | **Architecture overhaul**: local-first, eliminate Redis/Celery/multi-service. ADR-004/005. New build order: worker → api → frontend (real). |
 | 2026-04-22 | **Frontend zero-mock complete**: taskService, taskStore, all pages rewritten to real API/SSE. EXECUTION_PLAN.md updated. |
+| 2026-04-25 | ADR-007: Three-layer reasoning visualization architecture decided. `planning/REASONING_VISUALIZATION.md` written. Backend SSE `event.type` prerequisite identified. |
