@@ -624,6 +624,13 @@ class Pipeline:
                 best_score=best_score,
                 best_node_id=best_node.id if best_node else None,
                 total_nodes=len(self.db),
+                # Include node details so the API layer can persist ExploredNode
+                node_name=node.name,
+                node_motivation=node.motivation,
+                node_code_preview=node.code[:300],
+                analysis=analysis,
+                eval_score=node.score,
+                eval_success=engineer_result.get("success", False),
                 message=f"Iteration {iteration} complete. Best score so far: {best_score:.4f}",
             )
 
