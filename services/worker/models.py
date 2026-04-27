@@ -158,6 +158,11 @@ class PipelineEvent:
     # Stage-specific payloads (all optional; only relevant fields populated)
     message: str = ""
 
+    # Agent that produced this event — "researcher" | "engineer" | "analyzer" | ""
+    # Required by ADR-007: L2 Reasoning Tree and L3 Score Journey use this to
+    # classify events into their respective agent lanes.
+    agent_type: str = ""
+
     # Researcher
     node_name: str = ""
     node_motivation: str = ""
@@ -193,6 +198,7 @@ class PipelineEvent:
             "iteration": self.iteration,
             "timestamp": self.timestamp,
             "message": self.message,
+            "agent_type": self.agent_type,
             "node_name": self.node_name,
             "node_motivation": self.node_motivation,
             "node_code_preview": self.node_code_preview,

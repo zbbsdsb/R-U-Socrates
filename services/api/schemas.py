@@ -101,6 +101,7 @@ class SSEEvent(BaseModel):
     iteration: int = 0
     timestamp: str = ""
     message: str = ""
+    agent_type: str = ""   # "researcher" | "engineer" | "analyzer" | "" (ADR-007)
     node_name: str = ""
     node_motivation: str = ""
     node_code_preview: str = ""

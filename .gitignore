@@ -12,3 +12,10 @@ __pycache__/
 
 # Local dev
 *.local
+
+# Pre-production research & preparation artifacts
+prepare/
+
+# Runtime data (SQLite DB, FAISS indexes, run artifacts)
+data/
+

@@ -64,6 +64,7 @@ export interface PipelineEvent {
   iteration: number;
   timestamp: string;
   message: string;
+  agent_type: string;   // "researcher" | "engineer" | "analyzer" | "" (ADR-007)
   node_name: string;
   node_motivation: string;
   node_code_preview: string;
@@ -113,7 +114,7 @@ export async function createTask(payload: TaskPayload): Promise<ApiTask> {
     body: JSON.stringify({
       name: payload.name,
       description: payload.description,
-      model: payload.model ?? "gpt-4o-mini",
+      model: payload.model ?? "qwen-plus",   // matches backend schema default
       max_iterations: payload.max_iterations ?? 10,
     }),
   });

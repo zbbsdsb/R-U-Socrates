@@ -135,12 +135,15 @@ class Researcher:
                 call_name="researcher",
             )
         except ValueError:
-            logger.warning("[Researcher] Tag extraction failed, using raw response")
+            logger.warning("[Researcher] Tag extraction failed, attempting raw response fallback")
             response = self.llm.generate(prompt, system_prompt=RESEARCHER_SYSTEM, call_name="researcher_fallback")
+            extracted_code = self._extract_code_block(response.content)
             result = {
                 "name": f"candidate_{datetime.now().strftime('%H%M%S')}",
-                "motivation": "Generated (tag extraction failed)",
-                "code": self._extract_code_block(response.content),
+                # Preserve a meaningful motivation snippet from the raw LLM response
+                # so the frontend can display something useful instead of a placeholder.
+                "motivation": response.content[:500] if not extracted_code else response.content[:200],
+                "code": extracted_code,
             }
 
         code = result.get("code", "")
@@ -354,10 +357,12 @@ class Analyzer:
             )
             return result.get("analysis", "")
         except ValueError:
+            logger.warning("[Analyzer] Tag extraction failed, using raw response as analysis")
             response = self.llm.generate(
                 prompt, system_prompt=ANALYZER_SYSTEM, call_name="analyzer_fallback"
             )
-            return response.content[:1000]
+            # Return full raw content (no truncation) so the frontend can render it
+            return response.content
 
 
 # ---------------------------------------------------------------------------
@@ -466,6 +471,7 @@ class Pipeline:
                 type=EventType.RESEARCHER_STARTED,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="researcher",
                 message="Researcher generating next candidate…",
             )
 
@@ -487,6 +493,7 @@ class Pipeline:
                     type=EventType.RESEARCHER_FAILED,
                     run_id=run_id,
                     iteration=iteration,
+                    agent_type="researcher",
                     message=f"Researcher error: {type(exc).__name__}: {exc}",
                 )
                 continue
@@ -502,6 +509,7 @@ class Pipeline:
                 type=EventType.RESEARCHER_COMPLETE,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="researcher",
                 node_name=node.name,
                 node_motivation=node.motivation,
                 node_code_preview=node.code[:300],
@@ -515,6 +523,7 @@ class Pipeline:
                 type=EventType.ENGINEER_STARTED,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="engineer",
                 message="Engineer evaluating candidate…",
             )
 
@@ -549,6 +558,7 @@ class Pipeline:
                 type=EventType.ENGINEER_COMPLETE if engineer_result.get("success", False) else EventType.ENGINEER_FAILED,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="engineer",
                 eval_score=node.score,
                 eval_success=engineer_result.get("success", False),
                 eval_runtime=engineer_result.get("runtime", 0.0),
@@ -561,6 +571,7 @@ class Pipeline:
                 type=EventType.ANALYZER_STARTED,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="analyzer",
                 message="Analyzer interpreting results…",
             )
 
@@ -586,6 +597,7 @@ class Pipeline:
                 type=EventType.ANALYZER_COMPLETE,
                 run_id=run_id,
                 iteration=iteration,
+                agent_type="analyzer",
                 analysis=analysis,
                 message="Analyzer complete",
             )

@@ -248,13 +248,32 @@ class NodeDatabase:
         self.next_id = 0
         self.max_size = max_size
 
-        self.embedding = EmbeddingService(model_name=embedding_model)
-        self.faiss = FAISSIndex(
-            dimension=embedding_dim,
-            storage_path=self.storage_dir / "faiss",
-        )
+        # Defer heavy model loading to first use (lazy-init) so FastAPI startup
+        # is not blocked by sentence-transformers model downloads (~200 MB).
+        self._embedding_model_name = embedding_model
+        self._embedding_dim = embedding_dim
+        self._embedding: Optional["EmbeddingService"] = None
+        self._faiss: Optional["FAISSIndex"] = None
+
         self.sampler = UCB1Sampler()
         self._load()
+
+    @property
+    def embedding(self) -> "EmbeddingService":
+        """Lazy-load EmbeddingService on first use."""
+        if self._embedding is None:
+            self._embedding = EmbeddingService(model_name=self._embedding_model_name)
+        return self._embedding
+
+    @property
+    def faiss(self) -> "FAISSIndex":
+        """Lazy-load FAISSIndex on first use."""
+        if self._faiss is None:
+            self._faiss = FAISSIndex(
+                dimension=self._embedding_dim,
+                storage_path=self.storage_dir / "faiss",
+            )
+        return self._faiss
 
     def sample(self, n: int) -> List[Node]:
         with self.lock:
