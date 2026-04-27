@@ -13,12 +13,22 @@ R U Socrates 是 ASI-Evolve 的端到端产品化工具。
 
 目标：人人可理解、可运行、可验证、可发布。
 
-## 当前状态（截至 2026-04-25）
+## 当前状态（截至 2026-04-27）
 - **Phase 1 前端用户流完成** ✅
   - `packages/types/` — 共享类型包
   - `apps/web/` — 完整用户流（tasks → detail → results），含模拟 SSE
   - Phase 1 UX 改进完成（Phase 1 全部 6 项）：Toast 系统、shadcn Select/Dialog、Navbar active 高亮、Template 预填表单、Settings 面包屑、Stop/Delete 按钮
-- **核心产品特性已规划**：推理可视化（ADR-007），三层次架构
+- **技术债全部清理完成** ✅（2026-04-27，10 项 P0/P1/P2）
+  - cancelTask/deleteTask API 端点已补全
+  - sys.path.insert 脆弱导入已修复（module-level import）
+  - DB session 复用（单 session per run）
+  - RunEventStore 内存泄漏修复
+  - ExploredNode 每 iteration 写入
+  - agent_type 字段已添加至 PipelineEvent（ADR-007 后端前提 ✅）
+  - NodeDatabase FAISS/ST lazy-init
+  - 前后端默认 model 对齐（qwen-plus）
+  - .gitignore 忽略 prepare/ 和 data/
+- **ADR-007 后端前提已满足** — L2 Reasoning Tree / L3 Score Journey 可开始开发
 - `prepare/` 待清理（Phase 1 末）
 
 ## 核心产品特性：推理可视化（ADR-007, 2026-04-25）
