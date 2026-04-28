@@ -106,16 +106,26 @@ export function Toaster() {
 
   const ctxValue = React.useMemo(() => ({ toasts, toast, dismiss }), [toasts, toast, dismiss]);
 
-  if (!mounted) return null;
+  // Provide a no-op fallback during SSR/hydration so useToast() never throws
+  const fallbackValue: ToastContextValue = React.useMemo(
+    () => ({
+      toasts: [],
+      toast: () => {},
+      dismiss: () => {},
+    }),
+    [],
+  );
 
   return (
-    <ToastContext.Provider value={ctxValue}>
-      {/* Render layer */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
-        ))}
-      </div>
+    <ToastContext.Provider value={mounted ? ctxValue : fallbackValue}>
+      {/* Render layer — only show after hydration to avoid SSR mismatch */}
+      {mounted && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+          {toasts.map((t) => (
+            <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
+          ))}
+        </div>
+      )}
     </ToastContext.Provider>
   );
 }

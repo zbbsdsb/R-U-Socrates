@@ -15,9 +15,10 @@ export const metadata: Metadata = {
   },
   description:
     "Transform research questions into executable experiments — powered by AI.",
-  authors: [{ name: "ceaserzhao" }],
+  authors: [{ name: "zbbsdsb" }],
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
   },
 };
 
@@ -37,7 +38,7 @@ const BADGES = [
     label: "License",
     text: "Apache-2.0",
     bg: "bg-green-100 text-green-700",
-    href: "https://github.com/ceaserzhao/R-U-Socrates/blob/main/LICENSE",
+    href: "https://github.com/zbbsdsb/R-U-Socrates/blob/main/LICENSE",
   },
   {
     label: "Stack",
@@ -52,9 +53,9 @@ const BADGES = [
 ];
 
 const FOOTER_LINKS = [
-  { href: "https://github.com/ceaserzhao/R-U-Socrates", label: "GitHub" },
-  { href: "https://github.com/ceaserzhao/R-U-Socrates/issues", label: "Issues" },
-  { href: "https://github.com/ceaserzhao/R-U-Socrates/discussions", label: "Discussions" },
+  { href: "https://github.com/zbbsdsb/R-U-Socrates", label: "GitHub" },
+  { href: "https://github.com/zbbsdsb/R-U-Socrates/issues", label: "Issues" },
+  { href: "https://github.com/zbbsdsb/R-U-Socrates/discussions", label: "Discussions" },
 ];
 
 export default function RootLayout({
@@ -81,7 +82,7 @@ export default function RootLayout({
             <div className="flex items-center gap-3">
               {/* GitHub star button */}
               <a
-                href="https://github.com/ceaserzhao/R-U-Socrates"
+                href="https://github.com/zbbsdsb/R-U-Socrates"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded-md px-2.5 py-1 hover:bg-muted/50"
@@ -92,7 +93,7 @@ export default function RootLayout({
                 Star
               </a>
               <a
-                href="https://github.com/ceaserzhao/R-U-Socrates/fork"
+                href="https://github.com/zbbsdsb/R-U-Socrates/fork"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded-md px-2.5 py-1 hover:bg-muted/50"
@@ -145,12 +146,12 @@ export default function RootLayout({
               <span>
                 © {new Date().getFullYear()} Oasis Company — Built by{" "}
                 <a
-                  href="https://github.com/ceaserzhao"
+                  href="https://github.com/zbbsdsb"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-foreground/70 hover:text-foreground transition-colors"
                 >
-                  ceaserzhao
+                  zbbsdsb
                 </a>
               </span>
             </div>
@@ -167,7 +168,7 @@ export default function RootLayout({
                 </a>
               ))}
               <a
-                href="https://github.com/ceaserzhao/R-U-Socrates/blob/main/LICENSE"
+                href="https://github.com/zbbsdsb/R-U-Socrates/blob/main/LICENSE"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
