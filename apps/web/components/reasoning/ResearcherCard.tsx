@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { Brain, ChevronDown, ChevronUp } from "lucide-react";
 import { type StageData } from "@/stores/reasoningStore";
+import { CodeBlock } from "./CodeBlock";
 
 interface Props {
   data: StageData;
@@ -147,18 +148,12 @@ export function ResearcherCard({ data, iteration }: Props) {
 
       {/* Code preview */}
       {expanded && hasCode && (
-        <div className="mx-4 mb-4 rounded-xl bg-black/60 border border-white/5 overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-white/[0.02]">
-            <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-            </div>
-            <span className="text-xs text-white/20 font-mono ml-2">hypothesis.py</span>
-          </div>
-          <pre className="px-4 py-3 text-xs font-mono text-cyan-300/80 overflow-x-auto whitespace-pre scrollbar-thin">
-            {nodeCodePreview}
-          </pre>
+        <div className="mx-4 mb-4">
+          <CodeBlock
+            code={nodeCodePreview}
+            filename="hypothesis.py"
+            maxLines={12}
+          />
         </div>
       )}
     </div>
