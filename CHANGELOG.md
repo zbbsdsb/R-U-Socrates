@@ -56,6 +56,9 @@ First public release of R U Socrates — the transparent research engine.
 - No Docker / sandbox isolation for code execution (process exec + timeout)
 - L2 Reasoning Tree and L3 Score Journey not yet implemented (planned)
 - FAISS model download (~200 MB) happens on first run
+- Docker support: standalone Dockerfile + docker-compose.yml for development
+
+### 📄 License
 
 ### 📄 License
 

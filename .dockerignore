@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+.next/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs & extras
+*.md
+!README.md
+LICENSE
+
+# Local data
+data/*.db
+data/*.db-shm
+data/*.db-wal
+prepare/
+
+# Workbuddy
+.workbuddy/
+
+# Environment files (should be mounted via env_file or -e)
+.env
+.env.local
