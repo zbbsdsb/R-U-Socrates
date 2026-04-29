@@ -279,7 +279,8 @@ class NodeDatabase:
         with self.lock:
             nodes = list(self.nodes.values())
             selected = self.sampler.sample(nodes, n)
-            self._save()
+            # Note: visit_count updates are in-memory only; we persist on add(),
+            # not on every sample() call, to avoid repeated disk writes.
             return selected
 
     def add(self, node: Node) -> int:
@@ -360,15 +361,32 @@ class CognitionStore:
         self.score_threshold = score_threshold
         self.items: Dict[str, CognitionItem] = {}
 
-        self.embedding = EmbeddingService(model_name=embedding_model)
-        self.faiss = FAISSIndex(
-            dimension=embedding_dim,
-            storage_path=self.storage_dir / "faiss",
-        )
+        # Lazy-init: defer sentence-transformers and FAISS loading to first use
+        # (same pattern as NodeDatabase) to avoid blocking FastAPI startup.
+        self._embedding_model_name = embedding_model
+        self._embedding_dim = embedding_dim
+        self._embedding: Optional["EmbeddingService"] = None
+        self._faiss_index: Optional["FAISSIndex"] = None
+
         self.str_to_int: Dict[str, int] = {}
         self.int_to_str: Dict[int, str] = {}
         self.next_int_id = 0
         self._load()
+
+    @property
+    def embedding(self) -> "EmbeddingService":
+        if self._embedding is None:
+            self._embedding = EmbeddingService(model_name=self._embedding_model_name)
+        return self._embedding
+
+    @property
+    def faiss(self) -> "FAISSIndex":
+        if self._faiss_index is None:
+            self._faiss_index = FAISSIndex(
+                dimension=self._embedding_dim,
+                storage_path=self.storage_dir / "faiss",
+            )
+        return self._faiss_index
 
     def add(self, item: CognitionItem) -> str:
         with self.lock:

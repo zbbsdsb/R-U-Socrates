@@ -253,9 +253,17 @@ def cancel_task(task_id: str, db: Session = Depends(get_db)):
     if run:
         run.status = "cancelled"
         run.completed_at = datetime.utcnow()
-        # Close the SSE store so the background pipeline stops streaming
+        # Close the SSE store so the background pipeline stops streaming.
+        # We schedule the async close on the running event loop without blocking
+        # the sync route handler — asyncio.get_event_loop().run_until_complete()
+        # raises "This event loop is already running" inside FastAPI/uvicorn.
         store = RunEventStore.get(run.id)
-        asyncio.get_event_loop().run_until_complete(store.close())
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(store.close())
+        except RuntimeError:
+            # No running loop (e.g. in tests) — fire and forget via new loop
+            asyncio.run(store.close())
         RunEventStore.remove(run.id)
 
     task.status = "cancelled"
