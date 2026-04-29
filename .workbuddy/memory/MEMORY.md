@@ -87,6 +87,13 @@ infra/compose/         →  Docker Compose
 ## 下一步
 Phase 1 剩余模块：`services/memory/`（推荐优先）→ `services/api/` → `services/model-gateway/` → `services/worker/` → `infra/compose/`
 
+## L1 Live Reasoning Feed（ADR-007，2026-04-28 完成）
+- **前端**：ReasoningFeed + IterationAccordion + ResearcherCard + EngineerCard + AnalyzerCard + **CodeBlock（新增 Shiki 高亮）**
+- **Store**：`reasoningStore.ts`（Zustand，SSE → IterationData 标准化）
+- **后端**：`agent_type` 字段已在 pipeline.py 所有事件中就位（ADR-007 前置条件）
+- **Shiki**：安装 shiki，支持 python/js/ts/bash/rust/go/java/cpp/c/json；SSR 安全，语言自动检测
+- **下一步**：L2 Reasoning Tree / L3 Score Journey（recharts）
+
 ## 许可方案
 - 核心层（继承 ASI-Evolve）：Apache-2.0
 - 应用层（新增）：PolyForm Noncommercial
