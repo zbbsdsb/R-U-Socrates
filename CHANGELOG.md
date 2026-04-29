@@ -60,7 +60,5 @@ First public release of R U Socrates — the transparent research engine.
 
 ### 📄 License
 
-### 📄 License
-
 - Core layer (derived from ASI-Evolve): Apache-2.0
 - Application layer: PolyForm Noncommercial
