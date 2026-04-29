@@ -63,6 +63,52 @@ cd services/api
 uvicorn main:app --reload --port 8000
 ```
 
+---
+
+## Windows Desktop App
+
+Download and run the app with no installation required:
+
+### Option A — Installer (recommended)
+
+1. Download `R U Socrates Setup 0.1.0.exe` from the [Releases](https://github.com/zbbsdsb/R-U-Socrates/releases) page
+2. Run the installer, choose your install directory
+3. Launch **R U Socrates** from the Start Menu or Desktop shortcut
+4. On first launch, enter your LLM API key when prompted (stored locally)
+
+> The desktop app bundles its own Python + FastAPI backend. No separate Python installation needed.
+
+### Option B — Portable (no install)
+
+1. Download the `.zip` archive from the Releases page
+2. Extract anywhere (e.g. `C:\Program Files\R U Socrates\`)
+3. Run `R U Socrates.exe`
+
+### System Requirements
+
+| | Minimum |
+|---|---|
+| OS | Windows 10 (64-bit) |
+| RAM | 4 GB |
+| Disk | 500 MB free |
+| Python | Bundled (no separate install needed) |
+
+### Build from Source
+
+```bash
+# 1. Build the installer yourself
+cd apps/web
+npm run build:electron
+
+# Output: dist/R U Socrates Setup 0.1.0.exe
+
+# 2. Or build unpacked (faster, no NSIS packaging)
+npm run build:electron:dir
+# Output: dist/win-unpacked/R U Socrates.exe
+```
+
+---
+
 ### 5. Create your first task
 
 Open `http://localhost:3000`, click **New Task**, describe what you want to optimize, and watch the loop run.

@@ -1,0 +1,64 @@
+# ============================================================
+# electron-builder — Windows / macOS / Linux packaging
+# ============================================================
+# Build installer:  npm run build:electron
+# Build unpacked:   npm run build:electron:dir  (faster, no NSIS)
+#
+# Output: dist/R U Socrates Setup 0.1.0.exe
+# ============================================================
+
+appId: com.ru-socrates.app
+productName: R U Socrates
+copyright: Copyright (c) 2026
+artifactName: "${productName}-Setup-${version}.${ext}"
+
+projectRootDirectory: ../..
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/           # Next.js static export
+  - standalone/    # (reserved for future standalone mode)
+  - electron/      # main.js + preload.js
+  - package.json
+
+extraMetadata:
+  main: electron/main.js
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # icon: build/icon.ico   # uncomment after adding build/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: R U Socrates
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  # icon: build/icon.icns
+  category: public.app-category.developer-tools
+
+linux:
+  target:
+    - AppImage
+  # icon: build/
+  category: Development
+
+publish: null

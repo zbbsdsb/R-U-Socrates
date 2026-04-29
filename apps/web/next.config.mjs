@@ -4,8 +4,11 @@ const nextConfig = {
   experimental: {
     typedRoutes: false,
   },
-  // Enable standalone output for minimal Docker images
-  output: "standalone",
+  // Static export for Electron desktop packaging
+  output: "export",
+  images: {
+    unoptimized: true, // required for static export
+  },
 };
 
 export default nextConfig;
