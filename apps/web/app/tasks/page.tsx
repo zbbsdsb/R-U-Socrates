@@ -2,34 +2,52 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { listTasks, createTask, cancelTask, deleteTask, type ApiTask, type TaskPayload } from "@/services/taskService";
+import {
+  RefreshCw, Plus, X, Trash2, StopCircle, ClipboardList, Loader2, FileText,
+} from "lucide-react";
+import {
+  listTasks, createTask, cancelTask, deleteTask,
+  type ApiTask, type TaskPayload,
+} from "@/services/taskService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  pending: "Pending",
-  queued: "Queued",
-  running: "Running",
+  draft:     "Draft",
+  pending:   "Pending",
+  queued:    "Queued",
+  running:   "Running",
   completed: "Completed",
-  failed: "Failed",
+  failed:    "Failed",
   cancelled: "Cancelled",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "text-muted-foreground",
-  pending: "text-yellow-600 dark:text-yellow-400",
-  queued: "text-blue-600 dark:text-blue-400",
-  running: "text-blue-600 dark:text-blue-400",
-  completed: "text-green-600 dark:text-green-400",
-  failed: "text-red-600 dark:text-red-400",
+const STATUS_TEXT_COLOR: Record<string, string> = {
+  draft:     "text-muted-foreground",
+  pending:   "text-yellow-600 dark:text-yellow-400",
+  queued:    "text-sky-600 dark:text-sky-400",
+  running:   "text-blue-600 dark:text-blue-400",
+  completed: "text-emerald-600 dark:text-emerald-400",
+  failed:    "text-red-600 dark:text-red-400",
   cancelled: "text-muted-foreground",
+};
+
+/** Left-edge status bar color */
+const STATUS_BAR: Record<string, string> = {
+  draft:     "border-l-border",
+  pending:   "border-l-yellow-400",
+  queued:    "border-l-sky-400",
+  running:   "border-l-blue-500",
+  completed: "border-l-emerald-500",
+  failed:    "border-l-red-500",
+  cancelled: "border-l-muted-foreground/30",
 };
 
 const MODEL_OPTIONS = [
@@ -43,24 +61,14 @@ const MODEL_OPTIONS = [
   { value: "qwen-max",                   label: "Qwen Max" },
 ];
 
-/* ── Template prefill map ─────────────────────────────────────────────── */
+/* ── Template prefill ─────────────────────────────────────────────────── */
 
 const TEMPLATE_PREFILL: Record<string, Partial<TaskPayload>> = {
-  "code-optimization": {
-    description: "Find a faster or more memory-efficient implementation of the given algorithm.",
-  },
-  "architecture-design": {
-    description: "Explore alternative system designs for the given requirements and constraints.",
-  },
-  "algorithm-improvement": {
-    description: "Improve accuracy, convergence, or robustness of the given algorithm.",
-  },
-  "bug-fixing": {
-    description: "Identify and fix the bug given the failing test case or error description.",
-  },
-  "general": {
-    description: "Open-ended research exploration with no domain constraints.",
-  },
+  "code-optimization":   { description: "Find a faster or more memory-efficient implementation of the given algorithm." },
+  "architecture-design": { description: "Explore alternative system designs for the given requirements and constraints." },
+  "algorithm-improvement": { description: "Improve accuracy, convergence, or robustness of the given algorithm." },
+  "bug-fixing":          { description: "Identify and fix the bug given the failing test case or error description." },
+  "general":             { description: "Open-ended research exploration with no domain constraints." },
 };
 
 /* ── Inner page (reads searchParams) ──────────────────────────────────── */
@@ -77,7 +85,6 @@ function TasksPageInner() {
   const [deleteTarget, setDeleteTarget] = useState<ApiTask | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Read template from URL query param
   const templateParam = searchParams.get("template") ?? "";
 
   const [form, setForm] = useState<TaskPayload>({
@@ -87,7 +94,6 @@ function TasksPageInner() {
     max_iterations: 10,
   });
 
-  // Re-fill description when template param changes
   useEffect(() => {
     if (templateParam && TEMPLATE_PREFILL[templateParam]) {
       setForm((f) => ({ ...f, ...TEMPLATE_PREFILL[templateParam] }));
@@ -157,6 +163,7 @@ function TasksPageInner() {
 
   return (
     <div className="space-y-6">
+
       {/* Delete confirmation dialog */}
       {deleteTarget && (
         <Dialog
@@ -165,7 +172,7 @@ function TasksPageInner() {
         >
           <DialogContent onClose={() => setDeleteTarget(null)}>
             <DialogHeader>
-              <DialogTitle>Delete "{deleteTarget.name}"?</DialogTitle>
+              <DialogTitle>Delete &ldquo;{deleteTarget.name}&rdquo;?</DialogTitle>
               <DialogDescription>
                 This will permanently delete the task and all its run history. This action cannot be undone.
               </DialogDescription>
@@ -179,20 +186,9 @@ function TasksPageInner() {
                 className="gap-1.5"
               >
                 {deleting ? (
-                  <>
-                    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    Deleting…
-                  </>
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" />Deleting…</>
                 ) : (
-                  <>
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z"/>
-                    </svg>
-                    Delete Task
-                  </>
+                  <><Trash2 className="h-3.5 w-3.5" />Delete Task</>
                 )}
               </Button>
             </DialogFooter>
@@ -200,40 +196,22 @@ function TasksPageInner() {
         </Dialog>
       )}
 
-      {/* Header */}
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            Create, monitor, and review research tasks.
-          </p>
+          <p className="text-muted-foreground mt-1">Create, monitor, and review research tasks.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadTasks} disabled={loading} className="gap-1.5">
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-              <path d="M8 16H3v5"/>
-            </svg>
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
           </Button>
           <Button onClick={() => setCreating((v) => !v)} disabled={loading} className="gap-1.5">
             {creating ? (
-              <>
-                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Cancel
-              </>
+              <><X className="h-3.5 w-3.5" />Cancel</>
             ) : (
-              <>
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14m-7-7h14"/>
-                </svg>
-                New Task
-              </>
+              <><Plus className="h-3.5 w-3.5" />New Task</>
             )}
           </Button>
         </div>
@@ -242,11 +220,12 @@ function TasksPageInner() {
       {/* Template banner */}
       {templateParam && TEMPLATE_PREFILL[templateParam] && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-          <svg className="h-4 w-4 text-primary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
-          </svg>
+          <FileText className="h-4 w-4 text-primary shrink-0" />
           <span className="text-muted-foreground">
-            Using template: <strong className="text-foreground capitalize">{templateParam.replace(/-/g, " ")}</strong>
+            Using template:{" "}
+            <strong className="text-foreground capitalize">
+              {templateParam.replace(/-/g, " ")}
+            </strong>
           </span>
           <button
             onClick={() => router.push("/tasks")}
@@ -264,13 +243,17 @@ function TasksPageInner() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base">
-                  {templateParam ? `New Task — ${templateParam.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase())}` : "New Task"}
+                  {templateParam
+                    ? `New Task — ${templateParam.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase())}`
+                    : "New Task"}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   The research loop starts immediately after creation.
                 </CardDescription>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
+                Cancel
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -325,13 +308,7 @@ function TasksPageInner() {
                 className="gap-1.5"
               >
                 {creating ? (
-                  <>
-                    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    Creating…
-                  </>
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" />Creating…</>
                 ) : "Create & Run"}
               </Button>
             </div>
@@ -364,23 +341,34 @@ function TasksPageInner() {
           {tasks.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                <div className="flex flex-col items-center gap-2">
-                  <svg className="h-8 w-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                    <rect x="9" y="3" width="6" height="4" rx="1"/>
-                  </svg>
+                <div className="flex flex-col items-center gap-3">
+                  <ClipboardList className="h-10 w-10 opacity-20" />
                   <p>No tasks yet. Click <strong>New Task</strong> above to start.</p>
                 </div>
               </CardContent>
             </Card>
           )}
+
           {tasks.map((task) => (
             <Card
               key={task.id}
-              className="group hover:border-primary/30 transition-all duration-150 cursor-pointer"
               onClick={() => router.push(`/tasks/${task.id}`)}
+              className={cn(
+                "group relative overflow-hidden border-l-4 cursor-pointer transition-all duration-150",
+                "hover:shadow-md hover:-translate-y-px",
+                STATUS_BAR[task.status] ?? "border-l-border",
+                task.status === "running" &&
+                  "shadow-blue-500/10 shadow-sm",
+              )}
             >
-              <CardHeader className="pb-2">
+              {/* Running shimmer overlay */}
+              {task.status === "running" && (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-r-lg">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/5 to-transparent animate-[shimmer_2s_linear_infinite] -translate-x-full" />
+                </div>
+              )}
+
+              <CardHeader className="pb-2 relative">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <CardTitle className="text-base truncate">{task.name}</CardTitle>
@@ -391,31 +379,31 @@ function TasksPageInner() {
                   <div className="flex items-center gap-2 shrink-0">
                     {task.status === "running" && (
                       <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                        </span>
                         Running
                       </span>
                     )}
-                    <span className={`text-sm font-medium ${STATUS_COLORS[task.status] ?? ""}`}>
+                    <span className={cn("text-sm font-medium", STATUS_TEXT_COLOR[task.status] ?? "")}>
                       {STATUS_LABELS[task.status] ?? task.status}
                     </span>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pt-0">
+
+              <CardContent className="pt-0 relative">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {task.model && <span>{task.model}</span>}
                     {task.max_iterations && task.max_iterations > 0 && (
-                      <span className="flex items-center gap-1">
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                        </svg>
-                        {task.max_iterations} iters
-                      </span>
+                      <span>{task.max_iterations} iters</span>
                     )}
                     <span>{new Date(task.created_at).toLocaleDateString()}</span>
                   </div>
-                  {/* Action buttons — stop propagation */}
+
+                  {/* Action buttons */}
                   <div
                     className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
@@ -427,9 +415,7 @@ function TasksPageInner() {
                         className="h-7 text-xs gap-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
                         onClick={() => handleCancel(task)}
                       >
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
-                          <rect x="6" y="6" width="12" height="12" rx="1"/>
-                        </svg>
+                        <StopCircle className="h-3 w-3" />
                         Stop
                       </Button>
                     )}
@@ -440,9 +426,7 @@ function TasksPageInner() {
                         className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                         onClick={() => setDeleteTarget(task)}
                       >
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h18M8 6V4h8v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h10z"/>
-                        </svg>
+                        <Trash2 className="h-3 w-3" />
                         Delete
                       </Button>
                     )}
@@ -461,7 +445,15 @@ function TasksPageInner() {
 
 export default function TasksPage() {
   return (
-    <Suspense fallback={<div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />)}</div>}>
+    <Suspense
+      fallback={
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
+          ))}
+        </div>
+      }
+    >
       <TasksPageInner />
     </Suspense>
   );

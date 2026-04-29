@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronRight, StopCircle, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
 import { getTask, cancelTask, type ApiTask } from "@/services/taskService";
 import { useReasoningStore } from "@/stores/reasoningStore";
 import { ReasoningFeed } from "@/components/reasoning/ReasoningFeed";
@@ -9,6 +10,7 @@ import { ScoreCard } from "@/components/ScoreCard";
 import { RunErrorCard } from "@/components/RunErrorCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -89,28 +91,61 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   return (
     <div className="max-w-5xl mx-auto">
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link href="/tasks" className="text-sm text-muted-foreground hover:text-foreground">Tasks</Link>
-            <span className="text-muted-foreground">/</span>
-            <span className="text-sm font-medium">{task.name}</span>
+      {/* ── Breadcrumb + header ───────────────────────────────────────────── */}
+      <div className="mb-8">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
+          <Link href="/tasks" className="hover:text-foreground transition-colors font-medium">
+            Tasks
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate max-w-[30ch] text-foreground">{task.name}</span>
+        </nav>
+
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{task.name}</h1>
+            <p className="text-muted-foreground mt-1 max-w-[60ch]">{task.description}</p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">{task.name}</h1>
-          <p className="text-muted-foreground mt-1 max-w-[60ch]">{task.description}</p>
-        </div>
-        <div className="text-right text-sm text-muted-foreground shrink-0 space-y-0.5">
-          <div>Model: <span className="font-medium text-foreground">{task.model}</span></div>
-          <div>Max iterations: <span className="font-medium text-foreground">{task.max_iterations}</span></div>
-          {isRunning && (
-            <div className="flex items-center justify-end gap-1.5 mt-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-blue-600">Running</span>
+
+          {/* Meta + status badge */}
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            {/* Status badge */}
+            {isRunning && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                Running
+              </span>
+            )}
+            {isComplete && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Completed
+              </span>
+            )}
+            {isFailed && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400">
+                <XCircle className="h-3.5 w-3.5" />
+                Failed
+              </span>
+            )}
+            {!isRunning && !isComplete && !isFailed && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                {task.status}
+              </span>
+            )}
+
+            {/* Meta labels */}
+            <div className="text-right text-xs text-muted-foreground space-y-0.5">
+              <div>Model: <span className="font-medium text-foreground">{task.model}</span></div>
+              <div>Max iterations: <span className="font-medium text-foreground">{task.max_iterations}</span></div>
             </div>
-          )}
-          {isComplete && <div className="text-green-600 font-medium">Completed</div>}
-          {isFailed && <div className="text-red-600 font-medium">Failed</div>}
+          </div>
         </div>
       </div>
 
@@ -157,7 +192,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
           {isRunning && (
             <Button
               variant="outline"
-              className="w-full text-orange-600 border-orange-200 hover:bg-orange-50"
+              className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/40 dark:hover:bg-orange-950/20"
               onClick={async () => {
                 try {
                   await cancelTask(taskId);
@@ -167,7 +202,8 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
                 }
               }}
             >
-              ⏹ Stop Run
+              <StopCircle className="h-4 w-4" />
+              Stop Run
             </Button>
           )}
         </div>
