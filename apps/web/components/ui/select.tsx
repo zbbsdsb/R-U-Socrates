@@ -50,6 +50,8 @@ interface SelectItemProps {
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
+  onClick?: () => void;
+  "data-selected"?: boolean;
 }
 
 const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(

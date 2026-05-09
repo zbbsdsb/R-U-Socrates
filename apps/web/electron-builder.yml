@@ -18,11 +18,14 @@ directories:
   output: dist
   buildResources: build
 
+# Include Next.js source (dev server is started at runtime by electron main.js)
 files:
-  - out/           # Next.js static export
-  - standalone/    # (reserved for future standalone mode)
-  - electron/      # main.js + preload.js
+  - .              # everything except node_modules (handled by npm ci)
   - package.json
+  - "!node_modules/.cache"
+  - "!node_modules/.next"
+  - "!node_modules/@types"
+  - "!node_modules/typescript"
 
 extraMetadata:
   main: electron/main.js
@@ -34,7 +37,6 @@ win:
     - target: nsis
       arch:
         - x64
-  # icon: build/icon.ico   # uncomment after adding build/icon.ico
   artifactName: "${productName}-Setup-${version}.${ext}"
 
 nsis:
@@ -52,13 +54,11 @@ mac:
       arch:
         - x64
         - arm64
-  # icon: build/icon.icns
   category: public.app-category.developer-tools
 
 linux:
   target:
     - AppImage
-  # icon: build/
   category: Development
 
 publish: null

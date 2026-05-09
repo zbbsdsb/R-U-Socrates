@@ -92,12 +92,12 @@ export default function DocsPage() {
           verifiable, and repeatable AI-assisted investigation.
         </p>
         <div className="flex flex-wrap gap-3 pt-2">
-          <Button asChild size="sm">
-            <Link href="/tasks">Get Started</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/templates">Browse Templates</Link>
-          </Button>
+          <Link href="/tasks">
+            <Button size="sm">Get Started</Button>
+          </Link>
+          <Link href="/templates">
+            <Button variant="outline" size="sm">Browse Templates</Button>
+          </Link>
         </div>
       </div>
 
@@ -223,9 +223,9 @@ export default function DocsPage() {
                 </div>
               ))}
             </div>
-            <Button asChild variant="outline" size="sm" className="mt-2">
-              <Link href="/templates">View all templates →</Link>
-            </Button>
+            <Link href="/templates">
+              <Button variant="outline" size="sm" className="mt-2">View all templates →</Button>
+            </Link>
           </Section>
 
           {/* Architecture */}

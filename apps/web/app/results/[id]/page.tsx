@@ -1,17 +1,19 @@
 "use client";
 
+export const dynamicParams = true;
+
 import { useEffect, useState } from "react";
 import { getResult, listRuns } from "@/services/taskService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import type { Result, Run } from "@ru-socrates/types";
+import type { ApiResult, ApiRun } from "@/services/taskService";
 
 export default function ResultsPage({ params }: { params: { id: string } }) {
   const { id } = params;
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<ApiResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [run, setRun] = useState<Run | null>(null);
+  const [run, setRun] = useState<ApiRun | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -48,7 +50,18 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const { bestNode, metrics, summary } = result;
+  // Normalize API response to page shape
+  const bestNode = result.best_node;
+  const metrics = {
+    totalNodes: result.stats.total_nodes as number ?? 0,
+    totalIterations: result.stats.total_iterations as number ?? 0,
+    bestScore: result.best_score,
+    modelCalls: result.stats.model_calls as number ?? 0,
+    durationSeconds: run?.completed_at
+      ? (new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()) / 1000
+      : 0,
+  };
+  const summary = (result.stats.summary as string | undefined) ?? `Best score: ${(result.best_score * 100).toFixed(1)}%`;
 
   return (
     <div className="space-y-10 max-w-4xl">
@@ -124,7 +137,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
                 <span className="text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded">
                   BEST
                 </span>
-                <span className="font-bold text-green-700 text-lg">{(bestNode.score * 100).toFixed(1)}%</span>
+                <span className="font-bold text-green-700 text-lg">{(result.best_score * 100).toFixed(1)}%</span>
               </div>
             </div>
           </CardHeader>
@@ -156,13 +169,13 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Results */}
-            {bestNode.results && Object.keys(bestNode.results).length > 0 && (
+            {"results" in bestNode && Object.keys(bestNode.results as object).length > 0 && (
               <div>
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                   Benchmark Results
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(bestNode.results).map(([k, v]) => (
+                  {Object.entries(bestNode.results as Record<string, unknown>).map(([k, v]) => (
                     <div key={k} className="flex justify-between border rounded px-3 py-2 text-sm">
                       <span className="text-muted-foreground">{k}</span>
                       <span className="font-medium font-mono">{String(v)}</span>
@@ -183,7 +196,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <Button
           variant="outline"
           onClick={() => {
-            const text = `## Research Result\n\n${summary}\n\nBest: ${bestNode.name} (${(bestNode.score * 100).toFixed(1)}%)\n\n${bestNode.code}`;
+            const text = `## Research Result\n\n${summary}\n\nBest: ${bestNode.name} (${(result.best_score * 100).toFixed(1)}%)\n\n${bestNode.code}`;
             const blob = new Blob([text], { type: "text/markdown" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");

@@ -194,7 +194,7 @@ export function CodeBlock({ code, language, filename, maxLines = 0 }: Props) {
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 bg-white/[0.02]">
         {filename
           ? <span className="text-xs text-white/20 font-mono">{filename}</span>
-          : <LanguageDot lang={lang} />
+          : <LanguageDot lang={lang} />}
         <span className="text-[10px] text-white/15 font-mono">
           {displayCode.split("\n").length} lines
         </span>

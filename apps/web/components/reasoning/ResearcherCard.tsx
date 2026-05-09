@@ -150,7 +150,7 @@ export function ResearcherCard({ data, iteration }: Props) {
       {expanded && hasCode && (
         <div className="mx-4 mb-4">
           <CodeBlock
-            code={nodeCodePreview}
+            code={nodeCodePreview ?? ""}
             filename="hypothesis.py"
             maxLines={12}
           />

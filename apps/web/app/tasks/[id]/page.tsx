@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamicParams = true;
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, StopCircle, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
@@ -32,11 +34,6 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   } = useReasoningStore();
 
   const iterationCount = iterations.size;
-  const lastEvalEvent = useReasoningStore((s) => {
-    const iters = Array.from(s.iterations.values());
-    const last = iters[iters.length - 1];
-    return last?.engineer.status === "complete" ? last.engineer : null;
-  });
   const prevBestScore = 0; // simplified — ScoreCard handles this
 
   // Fetch task details
@@ -165,7 +162,6 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
               <ScoreCard
                 currentScore={bestScore}
                 iteration={totalNodes}
-                lastEvalEvent={lastEvalEvent ?? undefined}
                 prevBestScore={prevBestScore}
               />
             </CardContent>
