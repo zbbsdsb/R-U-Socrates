@@ -12,20 +12,21 @@ productName: R U Socrates
 copyright: Copyright (c) 2026
 artifactName: "${productName}-Setup-${version}.${ext}"
 
-projectRootDirectory: ../..
-
 directories:
   output: dist
   buildResources: build
 
-# Include Next.js source (dev server is started at runtime by electron main.js)
+# Include app source; node_modules are handled by electron-builder
 files:
-  - .              # everything except node_modules (handled by npm ci)
-  - package.json
-  - "!node_modules/.cache"
-  - "!node_modules/.next"
-  - "!node_modules/@types"
-  - "!node_modules/typescript"
+  - "**/*"
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,changelogs,history}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+  - "!**/._*"
+  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
+  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
+  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
+  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
 
 extraMetadata:
   main: electron/main.js
@@ -34,10 +35,10 @@ asar: true
 
 win:
   target:
-    - target: nsis
+    - target: portable
       arch:
         - x64
-  artifactName: "${productName}-Setup-${version}.${ext}"
+  artifactName: "${productName}-${version}-portable.${ext}"
 
 nsis:
   oneClick: false

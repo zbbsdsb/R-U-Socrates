@@ -50,9 +50,9 @@ Browser (localhost:3000)
 
 ---
 
-## Current Status (2026-04-23)
+## Current Status (2026-05-13)
 
-### ✅ Complete
+### ✅ Complete (MVP & Community Launch Ready)
 - `packages/types/` — shared TypeScript types
 - `apps/web/` — frontend with full user flow, **zero mock**:
   - `services/taskService.ts` — real API client, `EventSource` SSE, `PipelineEvent` mirroring backend schema
@@ -61,33 +61,28 @@ Browser (localhost:3000)
   - `app/tasks/[id]/page.tsx` — real SSE subscription, stage pipeline, live log
   - `app/results/[id]/page.tsx` — real `getResult()` + Markdown export
   - `app/page.tsx` — home page
+- **Reasoning Visualization (ADR-007)** — All three layers complete!
+  - **L1 Live Reasoning Feed** — real-time SSE panel with accordion cards, Shiki syntax highlighting, auto-scroll
+  - **L2 Reasoning Tree** ([ReasoningTree.tsx](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/apps/web/components/reasoning/ReasoningTree.tsx)) — SVG tree visualization, color-coded node states (Alive/Best/Pruned), interactive nodes
+  - **L3 Score Journey** ([ScoreChart.tsx](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/apps/web/components/reasoning/ScoreChart.tsx)) — Recharts line chart with gradient fill, "New best" markers, summary stats
 - `services/worker/` — full pipeline: Researcher / Engineer / Analyzer, `PipelineEvent` async generator, LiteLLM, FAISS memory, UCB1 sampling
 - `services/api/` — FastAPI + SQLite WAL + SSE endpoint + background pipeline launcher
 - `services/worker/evaluator.py` — MVP evaluator: `user_defined_score()` > execution scoring with test harness
+- **Documentation**
+  - [README.md](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/README.md) — updated with troubleshooting and contributing guide
+  - [Developer Guide](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/docs/DEVELOPER_GUIDE.md) — complete setup, architecture, and contribution guide
+  - [Release Template](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/docs/RELEASE_TEMPLATE.md) — GitHub release notes template
 - Planning documents: 5 ADRs written, architecture finalized
 - Bug fixes (2026-04-23): removed spurious `from .models import LLMResponse` in `llm.py`; replaced deprecated `get_event_loop()` with `asyncio.get_running_loop()` in `pipeline.py`
 
 ### 🚧 Ready to Run
 - All Python dependencies installed (`fastapi`, `uvicorn`, `litellm`, `sentence-transformers`, `faiss-cpu`, `numpy`)
+- Frontend dependencies ready (added `recharts` for L3 visualization)
 - Missing only: `OPENAI_API_KEY` (or equivalent LiteLLM-compatible key) in `services/api/.env`
 
-### ⏳ Pending
-- Full end-to-end integration test: FastAPI + Next.js simultaneously
-- `prepare/` cleanup (temporary upstream reference, to be removed post-fork)
-
-### 🔬 Reasoning Visualization (Feature — ADR-007)
-**Plan:** `planning/REASONING_VISUALIZATION.md`
-
-Core product feature: make the AI research reasoning process transparent and legible to non-technical users.
-
-Three layers, increasing depth:
-- **L1 — Live Reasoning Feed** (~4h): Real-time SSE panel on Task Detail page. Each iteration renders as an accordion card showing Researcher motivation → Engineer code → Analyzer score + stdout. Shiki syntax highlighting. Auto-scroll + "New events" button.
-- **L2 — Reasoning Tree** (~3h): SVG tree of explored nodes with parent/child relationships reconstructed from SSE events. Zero backend changes. Alive / pruned / best states visually distinct.
-- **L3 — Score Journey** (~2h): Iteration-over-iteration score chart with `recharts`. "New best" annotations, hover tooltips, responsive.
-
-**Backend prerequisite (1-line fix):** Add `event.type = "researcher"|"engineer"|"analyzer"` to SSE emission in `pipeline.py`. See `planning/ADR/ADR-007-reasoning-visualization.md`.
-
-**File manifest:** `components/reasoning/` (8 components) + `stores/reasoningStore.ts` (Zustand).
+### ⏳ Remaining (Pre-Release)
+- Manual end-to-end integration test: FastAPI + Next.js simultaneously
+- Git tag & GitHub Release (v0.2.0)
 
 ---
 

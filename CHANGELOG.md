@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.2.0 — 2026-05-13
+
+**MVP Complete & Community Launch** — Full reasoning visualization and production-ready documentation.
+
+### ✨ Features
+
+**Frontend (Next.js 14)**
+- **L2 Reasoning Tree** — SVG-based visualization with:
+  - Color-coded node statuses: Alive (cyan), Best (green), Pruned (gray)
+  - Interactive clickable nodes showing iteration details
+  - Auto-layout D3-like tree with parent-child connections
+  - Scrollable viewport for deep trees
+- **L3 Score Journey** — Recharts-powered line chart:
+  - Gradient area fill showing score trend
+  - "New best" amber markers at peak scores
+  - Custom tooltips with iteration details
+  - Summary stats (Final Score, New Bests, Improvement %)
+- **Documentation**
+  - [Developer Guide](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/docs/DEVELOPER_GUIDE.md): complete setup, architecture, and contribution guide
+  - [Release Template](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/docs/RELEASE_TEMPLATE.md): GitHub release notes template
+  - Updated [README](file:///e:/ceaserzhao/github%20projects/R%20U%20Socrates/README.md) with troubleshooting and contributing sections
+
+### 📦 Updates
+
+- Added `recharts` dependency to `apps/web/package.json`
+- Integrated L2/L3 components into task detail page
+- Theme colors updated for better visualization contrast
+
+### 🚀 Release Readiness
+
+- ✅ Full MVP feature set: L1/L2/L3 visualization complete
+- ✅ Complete developer documentation
+- ✅ Release templates and changelog maintained
+- ✅ Contributing guide for community onboarding
+
 ## v0.1.0 — 2026-04-29
 
 First public release of R U Socrates — the transparent research engine.

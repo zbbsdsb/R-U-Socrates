@@ -8,6 +8,8 @@ import { ChevronRight, StopCircle, CheckCircle2, XCircle, Loader2, Clock } from 
 import { getTask, cancelTask, type ApiTask } from "@/services/taskService";
 import { useReasoningStore } from "@/stores/reasoningStore";
 import { ReasoningFeed } from "@/components/reasoning/ReasoningFeed";
+import { ReasoningTree } from "@/components/reasoning/ReasoningTree";
+import { ScoreChart } from "@/components/reasoning/ScoreChart";
 import { ScoreCard } from "@/components/ScoreCard";
 import { RunErrorCard } from "@/components/RunErrorCard";
 import { Button } from "@/components/ui/button";
@@ -219,6 +221,12 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
             </h2>
             <ReasoningFeed />
           </div>
+
+          {/* ── Score Journey Chart (L3) ── */}
+          {(isComplete || isRunning) && <ScoreChart />}
+
+          {/* ── Reasoning Tree (L2) ── */}
+          {(isComplete || isRunning) && <ReasoningTree />}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

@@ -112,6 +112,92 @@ The pipeline is a pure Python async generator. FastAPI streams its events via Se
 
 ---
 
+## Reasoning Visualization
+
+R U Socrates provides three layers of transparency into the AI research process:
+
+### L1 — Live Reasoning Feed
+Real-time stream of every iteration showing:
+- **Researcher** → generates candidate solutions with motivations
+- **Engineer** → executes and benchmarks code
+- **Analyzer** → interprets results and insights
+
+### L2 — Reasoning Tree
+Visual tree diagram showing:
+- All explored nodes and their parent-child relationships
+- Best path highlighted in green
+- Currently exploring path in cyan
+- Previously explored paths in gray
+
+### L3 — Score Journey
+Interactive chart showing:
+- Score progression across iterations
+- "New best" markers for peak performances
+- Improvement tracking
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**"API is offline" error in frontend**
+Make sure the FastAPI backend is running:
+```bash
+cd services/api
+uvicorn main:app --reload --port 8000
+```
+
+**LLM API errors**
+1. Verify your API key is set in `services/api/.env`
+2. Check the model name is LiteLLM-compatible (e.g., `gpt-4o`, `deepseek-chat`)
+3. For local models, ensure Ollama is running: `ollama serve`
+
+**Frontend build fails**
+```bash
+cd apps/web
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Port already in use**
+Change the port in `apps/web/next.config.mjs` or kill the existing process:
+```bash
+# Windows
+netstat -ano | findstr :3000
+taskkill /PID <pid> /F
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read our [Developer Guide](docs/DEVELOPER_GUIDE.md) for setup instructions and code standards.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/zbbsdsb/R-U-Socrates.git
+cd R-U-Socrates
+
+# Install frontend dependencies
+npm install
+cd apps/web && npm install && cd ../..
+
+# Install backend dependencies
+pip install -r services/requirements.txt
+
+# Start development servers
+# Terminal 1: API
+cd services/api && uvicorn main:app --reload
+
+# Terminal 2: Frontend
+cd apps/web && npm run dev
+```
+
+---
+
 ## License
 
 - Core layer (derived from ASI-Evolve): **Apache-2.0**
