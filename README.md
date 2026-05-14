@@ -205,4 +205,15 @@ cd apps/web && npm run dev
 
 ---
 
-Built with ❤️ by [Oasis Company](https://github.com/zbbsdsb)
+<p align="center">
+  <strong>🏢 Oasis Company</strong><br>
+  <a href="https://github.com/zbbsdsb">GitHub Organization</a>
+</p>
+
+<p align="center">
+  Explore our ecosystem:
+  <a href="https://github.com/zbbsdsb/QueueDesk">QueueDesk</a> ·
+  <a href="https://github.com/zbbsdsb/muserock">MuseRock</a> ·
+  <a href="https://github.com/zbbsdsb/R-U-Socrates">R U Socrates</a> ·
+  <a href="https://github.com/zbbsdsb/pwl-reading-companion">pwl-reading</a>
+</p>
