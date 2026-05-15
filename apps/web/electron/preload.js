@@ -1,9 +1,4 @@
-/**
- * R U Socrates — Electron Preload Script
- * Exposes safe IPC bridge to the renderer process.
- */
-
-const { contextBridge } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
   platform: process.platform,
@@ -12,4 +7,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
   },
+  minimize: () => ipcRenderer.send("minimize"),
+  maximize: () => ipcRenderer.send("maximize"),
+  close: () => ipcRenderer.send("close"),
+  checkForUpdates: () => ipcRenderer.send("check-for-updates"),
+  onUpdateStatus: (callback) => ipcRenderer.on("update-status", (_, status) => callback(status)),
 });

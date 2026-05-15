@@ -40,13 +40,18 @@ export interface ReasoningState {
   // Grouped by iteration
   iterations: Map<number, IterationData>;
   // Overall run status
-  runStatus: "idle" | "running" | "completed" | "failed";
+  runStatus: "idle" | "running" | "paused" | "completed" | "failed";
   // Which iteration is currently active (being streamed)
   activeIteration: number;
   // Best score ever achieved
   bestScore: number;
   // Total nodes explored
   totalNodes: number;
+  // Current LLM provider and model
+  currentProvider: string;
+  currentModel: string;
+  // Fallback history
+  fallbackHistory: Array<{ from: string; to: string; timestamp: string }>;
 
   // Internal
   _unsub: (() => void) | null;
@@ -163,6 +168,9 @@ export const useReasoningStore = create<ReasoningStore>((set, get) => ({
   activeIteration: 0,
   bestScore: 0,
   totalNodes: 0,
+  currentProvider: "",
+  currentModel: "",
+  fallbackHistory: [],
   _unsub: null,
 
   subscribe: (taskId: string) => {
@@ -178,6 +186,9 @@ export const useReasoningStore = create<ReasoningStore>((set, get) => ({
             activeIteration: 0,
             bestScore: 0,
             totalNodes: 0,
+            currentProvider: event.current_provider || "",
+            currentModel: event.current_model || "",
+            fallbackHistory: [],
           };
         }
         if (event.type === "run_complete") {
@@ -191,6 +202,31 @@ export const useReasoningStore = create<ReasoningStore>((set, get) => ({
         if (event.type === "run_failed") {
           return { ...state, runStatus: "failed" };
         }
+        if (event.type === "run_paused") {
+          return { ...state, runStatus: "paused" };
+        }
+        if (event.type === "run_resumed") {
+          return { ...state, runStatus: "running" };
+        }
+        if (event.type === "provider_switched") {
+          return {
+            ...state,
+            currentProvider: event.current_provider,
+            currentModel: event.current_model,
+            fallbackHistory: [
+              ...state.fallbackHistory,
+              {
+                from: event.previous_provider,
+                to: event.current_provider,
+                timestamp: event.timestamp,
+              },
+            ],
+          };
+        }
+
+        // Update current provider/model from any event that has it
+        const newCurrentProvider = event.current_provider || state.currentProvider;
+        const newCurrentModel = event.current_model || state.currentModel;
 
         // Active iteration tracking
         const activeIteration =
@@ -212,6 +248,8 @@ export const useReasoningStore = create<ReasoningStore>((set, get) => ({
           activeIteration,
           bestScore,
           totalNodes,
+          currentProvider: newCurrentProvider,
+          currentModel: newCurrentModel,
         };
       });
     });
@@ -235,6 +273,9 @@ export const useReasoningStore = create<ReasoningStore>((set, get) => ({
       activeIteration: 0,
       bestScore: 0,
       totalNodes: 0,
+      currentProvider: "",
+      currentModel: "",
+      fallbackHistory: [],
     });
   },
 

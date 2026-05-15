@@ -19,7 +19,7 @@ import re
 import time
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import litellm
 from litellm import completion
@@ -42,24 +42,34 @@ class LLMResponse:
     usage: Dict[str, int] = field(default_factory=dict)
     model: str = ""
     call_time: float = 0.0
+    provider: str = ""
+
+
+@dataclass
+class ProviderConfig:
+    model: str
+    api_key: Optional[str] = None
+    api_base: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
-# LiteLLM-backed client
+# LiteLLM-backed client with fallback support
 # ---------------------------------------------------------------------------
 
 class LLMClient:
     """
-    Thin LiteLLM wrapper with the same interface as ASI-Evolve's LLMClient.
+    Thin LiteLLM wrapper with the same interface as ASI-Evolve's LLMClient,
+    plus support for multiple providers with automatic fallback.
 
-    Key differences from the original:
-    - Uses litellm.completion instead of openai.OpenAI
-    - model string follows LiteLLM convention: "gpt-4o-mini", "ollama/llama3", etc.
-    - No wandb / custom logger dependencies
+    Key features:
+    - Accepts a list of ProviderConfig objects for fallback
+    - Automatically tries next provider when one fails
+    - Tracks current active provider
     """
 
     def __init__(
         self,
+        providers: Optional[List[ProviderConfig]] = None,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
@@ -69,20 +79,41 @@ class LLMClient:
         retry_times: int = 3,
         retry_delay: int = 5,
     ):
-        self.model = model
-        self.api_key = api_key
-        self.api_base = api_base
+        # Handle backward compatibility with old single-provider init
+        if providers is None:
+            providers = [ProviderConfig(model=model, api_key=api_key, api_base=api_base)]
+        
+        self.providers = providers
+        self.current_provider_index = 0
+        self.previous_provider_index = None  # Track previous provider index
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.timeout = timeout
         self.retry_times = retry_times
         self.retry_delay = retry_delay
 
-        # Pass api_key / api_base to litellm via environment or direct param
-        if api_key:
-            litellm.api_key = api_key
-        if api_base:
-            litellm.api_base = api_base
+    @property
+    def current_provider(self) -> ProviderConfig:
+        return self.providers[self.current_provider_index]
+
+    @property
+    def current_model(self) -> str:
+        return self.current_provider.model
+    
+    @property
+    def current_provider_name(self) -> str:
+        provider = self.current_provider
+        return provider.model.split("/")[0] if "/" in provider.model else provider.model
+
+    @property
+    def switched_provider(self) -> bool:
+        return self.previous_provider_index is not None and self.previous_provider_index != self.current_provider_index
+
+    @property
+    def previous_provider(self) -> Optional[ProviderConfig]:
+        if self.previous_provider_index is not None:
+            return self.providers[self.previous_provider_index]
+        return None
 
     def chat(
         self,
@@ -90,56 +121,81 @@ class LLMClient:
         call_name: Optional[str] = None,
         **kwargs,
     ) -> LLMResponse:
-        """Send a chat-completions request via LiteLLM."""
-        params = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "timeout": self.timeout,
-            **kwargs,
-        }
-        if self.api_base:
-            params["api_base"] = self.api_base
-
+        """Send a chat-completions request via LiteLLM with fallback support."""
         last_error: Optional[Exception] = None
+        original_provider_index = self.current_provider_index
+        self.previous_provider_index = self.current_provider_index  # Reset previous index
 
-        for attempt in range(self.retry_times):
-            try:
-                start = time.time()
-                response = completion(**params)
-                elapsed = time.time() - start
+        # Try each provider in order
+        for provider_index in range(original_provider_index, len(self.providers)):
+            self.current_provider_index = provider_index
+            provider = self.providers[provider_index]
+            
+            params = {
+                "model": provider.model,
+                "messages": messages,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "timeout": self.timeout,
+                **kwargs,
+            }
+            if provider.api_key:
+                params["api_key"] = provider.api_key
+            if provider.api_base:
+                params["api_base"] = provider.api_base
 
-                content = response.choices[0].message.content or ""
-                usage: Dict[str, int] = {}
-                if response.usage:
-                    usage = {
-                        "prompt_tokens": response.usage.prompt_tokens or 0,
-                        "completion_tokens": response.usage.completion_tokens or 0,
-                        "total_tokens": response.usage.total_tokens or 0,
-                    }
+            # Retry within a single provider
+            for attempt in range(self.retry_times):
+                try:
+                    start = time.time()
+                    response = completion(**params)
+                    elapsed = time.time() - start
 
-                logger.debug(
-                    f"[LLM] {call_name or 'call'} | model={self.model} "
-                    f"| tokens={usage.get('total_tokens', '?')} | time={elapsed:.2f}s"
-                )
+                    content = response.choices[0].message.content or ""
+                    usage: Dict[str, int] = {}
+                    if response.usage:
+                        usage = {
+                            "prompt_tokens": response.usage.prompt_tokens or 0,
+                            "completion_tokens": response.usage.completion_tokens or 0,
+                            "total_tokens": response.usage.total_tokens or 0,
+                        }
 
-                return LLMResponse(
-                    content=content,
-                    usage=usage,
-                    model=self.model,
-                    call_time=elapsed,
-                )
+                    provider_name = provider.model.split("/")[0] if "/" in provider.model else provider.model
+                    logger.debug(
+                        f"[LLM] {call_name or 'call'} | provider={provider_name} | model={provider.model} "
+                        f"| tokens={usage.get('total_tokens', '?')} | time={elapsed:.2f}s"
+                    )
 
-            except Exception as exc:
-                last_error = exc
-                logger.warning(
-                    f"[LLM] {call_name or 'call'} failed "
-                    f"(attempt {attempt + 1}/{self.retry_times}): {exc}"
-                )
-                if attempt < self.retry_times - 1:
-                    time.sleep(self.retry_delay)
+                    # If we switched providers, log that
+                    if provider_index > original_provider_index:
+                        logger.info(
+                            f"[LLM] Successfully switched to fallback provider: {provider_name}"
+                        )
 
+                    return LLMResponse(
+                        content=content,
+                        usage=usage,
+                        model=provider.model,
+                        provider=provider_name,
+                        call_time=elapsed,
+                    )
+
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning(
+                        f"[LLM] {call_name or 'call'} failed with provider {provider.model} "
+                        f"(attempt {attempt + 1}/{self.retry_times}): {exc}"
+                    )
+                    if attempt < self.retry_times - 1:
+                        time.sleep(self.retry_delay)
+                    else:
+                        logger.warning(
+                            f"[LLM] All retries exhausted for provider {provider.model}, "
+                            f"trying next provider..."
+                        )
+
+        # If we get here, all providers failed
+        logger.error(f"[LLM] All providers failed! Last error: {last_error}")
         raise last_error  # type: ignore[misc]
 
     def generate(

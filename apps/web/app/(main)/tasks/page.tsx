@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
@@ -68,6 +69,12 @@ const TEMPLATE_PREFILL: Record<string, Partial<TaskPayload>> = {
   "architecture-design": { description: "Explore alternative system designs for the given requirements and constraints." },
   "algorithm-improvement": { description: "Improve accuracy, convergence, or robustness of the given algorithm." },
   "bug-fixing":          { description: "Identify and fix the bug given the failing test case or error description." },
+  "python-helper":       { description: "I need help with Python programming. Please help me: 1. Write clean, Pythonic code 2. Debug and fix issues 3. Optimize for performance or readability 4. Follow best practices and PEP 8 standards 5. Include proper documentation and type hints where appropriate" },
+  "data-analysis":       { description: "I need help with data analysis. Please help me: 1. Explore and understand the dataset 2. Clean and preprocess the data 3. Perform statistical analysis 4. Create visualizations 5. Generate actionable insights and recommendations" },
+  "code-review":         { description: "I need a thorough code review. Please: 1. Check for bugs and logical errors 2. Review code quality and readability 3. Identify security vulnerabilities 4. Suggest performance optimizations 5. Recommend architectural improvements 6. Check for compliance with coding standards" },
+  "research-paper":      { description: "I need help with this research paper. Please: 1. Summarize the paper's key contributions 2. Explain the methodology 3. Analyze the results and conclusions 4. Identify strengths and weaknesses 5. Suggest future research directions 6. Relate the work to existing literature" },
+  "creative-writing":    { description: "I need help with creative writing. Please help me: 1. Develop compelling characters 2. Craft engaging plots and storylines 3. Create vivid descriptions and settings 4. Write natural dialogue 5. Refine and edit the content 6. Explore different writing styles and tones" },
+  "technical-writing":   { description: "I need help with technical writing. Please help me: 1. Structure the content logically 2. Write clear explanations and instructions 3. Include examples and code snippets 4. Use consistent terminology 5. Make complex concepts accessible 6. Ensure accuracy and completeness" },
   "general":             { description: "Open-ended research exploration with no domain constraints." },
 };
 
@@ -77,6 +84,7 @@ function TasksPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { settings } = useSettingsStore();
 
   const [tasks, setTasks] = useState<ApiTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +100,7 @@ function TasksPageInner() {
     description: TEMPLATE_PREFILL[templateParam]?.description ?? "",
     model: "gpt-4o-mini",
     max_iterations: 10,
+    eval_code: settings.customEvaluator,
   });
 
   useEffect(() => {

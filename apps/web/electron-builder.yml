@@ -1,22 +1,12 @@
-# ============================================================
-# electron-builder — Windows / macOS / Linux packaging
-# ============================================================
-# Build installer:  npm run build:electron
-# Build unpacked:   npm run build:electron:dir  (faster, no NSIS)
-#
-# Output: dist/R U Socrates Setup 0.1.0.exe
-# ============================================================
-
 appId: com.ru-socrates.app
 productName: R U Socrates
-copyright: Copyright (c) 2026
-artifactName: "${productName}-Setup-${version}.${ext}"
+copyright: Copyright (c) 2026 Oasis
+artifactName: "${productName}-${version}-${os}.${ext}"
 
 directories:
   output: dist
   buildResources: build
 
-# Include app source; node_modules are handled by electron-builder
 files:
   - "**/*"
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,changelogs,history}"
@@ -35,10 +25,10 @@ asar: true
 
 win:
   target:
-    - target: portable
-      arch:
-        - x64
-  artifactName: "${productName}-${version}-portable.${ext}"
+    - nsis
+    - portable
+  icon: build/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
 
 nsis:
   oneClick: false
@@ -51,15 +41,30 @@ nsis:
 
 mac:
   target:
-    - target: dmg
-      arch:
-        - x64
-        - arm64
+    - dmg
+    - zip
+  icon: build/icon.icns
   category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 
 linux:
   target:
     - AppImage
+    - deb
+  icon: build/icon.png
   category: Development
 
-publish: null
+publish:
+  provider: github
+  owner: your-username
+  repo: your-repo

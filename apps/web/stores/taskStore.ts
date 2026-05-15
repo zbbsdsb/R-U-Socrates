@@ -16,7 +16,7 @@ import type { PipelineEvent } from "@/services/taskService";
 export interface RunProgress {
   runId: string;
   taskId: string;
-  status: "running" | "completed" | "failed";
+  status: "running" | "paused" | "completed" | "failed";
   currentStage: "idle" | "researcher" | "engineer" | "analyzer";
   iteration: number;
   bestScore: number;
@@ -46,59 +46,132 @@ function eventToStage(eventType: string): RunProgress["currentStage"] {
   return "idle";
 }
 
-export const useTaskStore = create<TaskStore>((set, get) => ({
-  selectedTaskId: null,
-  runProgress: {},
+// Simple debounce utility
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
-  setSelectedTask: (id) => set({ selectedTaskId: id }),
+export const useTaskStore = create<TaskStore>((set, get) => {
+  // Track debounced state per task
+  const taskState: Record<string, {
+    timeout: NodeJS.Timeout | null;
+    pendingEvents: PipelineEvent[];
+  }> = {};
 
-  initRunProgress: (taskId, runId) =>
-    set((state) => ({
-      runProgress: {
-        ...state.runProgress,
-        [taskId]: {
-          runId,
-          taskId,
-          status: "running",
-          currentStage: "idle",
-          iteration: 0,
-          bestScore: 0,
-          totalNodes: 0,
-          lastMessage: "Starting research loop…",
-          lastEvent: null,
-          events: [],
-        },
-      },
-    })),
+  // Function to flush pending events for a task
+  const flushEvents = (taskId: string) => {
+    const state = taskState[taskId];
+    if (!state || state.pendingEvents.length === 0) return;
 
-  applyPipelineEvent: (taskId, event) =>
-    set((state) => {
-      const prev = state.runProgress[taskId];
-      if (!prev) return state;
+    set((prevState) => {
+      const prev = prevState.runProgress[taskId];
+      if (!prev) return prevState;
 
-      const status: RunProgress["status"] =
-        event.type === "run_complete"
-          ? "completed"
-          : event.type === "run_failed"
-          ? "failed"
-          : "running";
+      // Merge all pending events
+      let updated = { ...prev };
+      for (const event of state.pendingEvents) {
+        let status: RunProgress["status"] = updated.status;
+        if (event.type === "run_complete") {
+          status = "completed";
+        } else if (event.type === "run_failed") {
+          status = "failed";
+        } else if (event.type === "run_paused") {
+          status = "paused";
+        } else if (event.type === "run_resumed") {
+          status = "running";
+        } else if (updated.status !== "paused") {
+          status = "running";
+        }
 
-      const updated: RunProgress = {
-        ...prev,
-        status,
-        currentStage: eventToStage(event.type),
-        iteration: event.iteration > 0 ? event.iteration : prev.iteration,
-        bestScore: event.best_score > prev.bestScore ? event.best_score : prev.bestScore,
-        totalNodes: event.total_nodes > 0 ? event.total_nodes : prev.totalNodes,
-        lastMessage: event.message || prev.lastMessage,
-        lastEvent: event,
-        events: [...prev.events, event],
-      };
+        updated = {
+          ...updated,
+          status,
+          currentStage: eventToStage(event.type),
+          iteration: event.iteration > 0 ? event.iteration : updated.iteration,
+          bestScore: event.best_score > updated.bestScore ? event.best_score : updated.bestScore,
+          totalNodes: event.total_nodes > 0 ? event.total_nodes : updated.totalNodes,
+          lastMessage: event.message || updated.lastMessage,
+          lastEvent: event,
+          events: [...updated.events, event],
+        };
+      }
 
       return {
-        runProgress: { ...state.runProgress, [taskId]: updated },
+        runProgress: { ...prevState.runProgress, [taskId]: updated },
       };
-    }),
+    });
 
-  getRunProgress: (taskId) => get().runProgress[taskId] ?? null,
-}));
+    state.pendingEvents = [];
+  };
+
+  return {
+    selectedTaskId: null,
+    runProgress: {},
+
+    setSelectedTask: (id) => set({ selectedTaskId: id }),
+
+    initRunProgress: (taskId, runId) => {
+      // Clear any existing debounce for this task
+      if (taskState[taskId] && taskState[taskId].timeout) {
+        clearTimeout(taskState[taskId].timeout);
+      }
+      taskState[taskId] = { timeout: null, pendingEvents: [] };
+
+      set((state) => ({
+        runProgress: {
+          ...state.runProgress,
+          [taskId]: {
+            runId,
+            taskId,
+            status: "running",
+            currentStage: "idle",
+            iteration: 0,
+            bestScore: 0,
+            totalNodes: 0,
+            lastMessage: "Starting research loop…",
+            lastEvent: null,
+            events: [],
+          },
+        },
+      }));
+    },
+
+    applyPipelineEvent: (taskId, event) => {
+      // Initialize task state if needed
+      if (!taskState[taskId]) {
+        taskState[taskId] = { timeout: null, pendingEvents: [] };
+      }
+
+      // Add event to pending list
+      taskState[taskId].pendingEvents.push(event);
+
+      // For completion/failure/pause/resume events, flush immediately
+      if (["run_complete", "run_failed", "run_paused", "run_resumed"].includes(event.type)) {
+        if (taskState[taskId].timeout) {
+          clearTimeout(taskState[taskId].timeout);
+          taskState[taskId].timeout = null;
+        }
+        flushEvents(taskId);
+        return;
+      }
+
+      // Otherwise, debounce
+      if (taskState[taskId].timeout) {
+        clearTimeout(taskState[taskId].timeout);
+      }
+      taskState[taskId].timeout = setTimeout(() => {
+        flushEvents(taskId);
+        taskState[taskId].timeout = null;
+      }, 100);
+    },
+
+    getRunProgress: (taskId) => get().runProgress[taskId] ?? null,
+  };
+});

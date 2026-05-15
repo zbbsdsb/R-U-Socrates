@@ -20,7 +20,7 @@ import traceback
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator, Dict, List, Optional, Any
+from typing import AsyncGenerator, Dict, List, Optional, Any, Callable, Awaitable
 
 from .models import (
     Node,
@@ -29,7 +29,7 @@ from .models import (
     EventType,
     RunConfig,
 )
-from .llm import LLMClient, LLMResponse
+from .llm import LLMClient, LLMResponse, ProviderConfig
 from .memory import NodeDatabase, CognitionStore
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,8 @@ class Engineer:
         self,
         code: str,
         work_dir: Path,
-        eval_script: Optional[str],
+        eval_script: Optional[str] = None,
+        eval_code: Optional[str] = None,
         timeout: int = 300,
     ) -> Dict[str, Any]:
         import time, subprocess, json, sys, shutil, platform, os
@@ -204,8 +205,8 @@ class Engineer:
         code_file = work_dir / "code.py"
         code_file.write_text(code, encoding="utf-8")
 
-        if not eval_script:
-            logger.info("[Engineer] No eval_script provided, skipping evaluation")
+        if not eval_script and not eval_code:
+            logger.info("[Engineer] No eval_script or eval_code provided, skipping evaluation")
             return {
                 "eval_score": 0.0,
                 "success": True,
@@ -214,6 +215,13 @@ class Engineer:
                 "stderr": "",
                 "skipped": True,
             }
+
+        # If eval_code is provided, write it to a file in work_dir
+        evaluator_path: Optional[Path] = None
+        if eval_code:
+            evaluator_path = work_dir / "evaluator.py"
+            evaluator_path.write_text(eval_code, encoding="utf-8")
+            eval_script = str(evaluator_path)
 
         # Resolve command cross-platform (ADR-002 / Phase 0 fix)
         cmd = self._resolve_cmd(eval_script, work_dir)
@@ -379,8 +387,9 @@ class Pipeline:
             yield f"data: {json.dumps(event.to_sse_dict())}\\n\\n"
     """
 
-    def __init__(self, config: RunConfig):
+    def __init__(self, config: RunConfig, pause_check: Optional[Callable[[], Awaitable[None]]] = None):
         self.config = config
+        self.pause_check = pause_check
 
         # Data dirs
         data_root = Path(config.data_dir) / "runs" / config.run_id
@@ -399,12 +408,21 @@ class Pipeline:
             embedding_model=config.embedding_model,
         )
 
-        # LLM
+        # LLM - build provider configs
+        if config.models:
+            providers = [ProviderConfig(model=m) for m in config.models]
+        else:
+            providers = [ProviderConfig(model=config.model)]
+        
         self.llm = LLMClient(
-            model=config.model,
+            providers=providers,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )
+        
+        # Track previous provider for fallback events
+        self._previous_provider = None
+        self._previous_model = None
 
         # Agents
         self.researcher = Researcher(
@@ -425,20 +443,31 @@ class Pipeline:
         cfg = self.config
         run_id = cfg.run_id
 
+        # Get initial provider info
+        initial_provider = self.llm.current_provider_name
+        initial_model = self.llm.current_model
+        
         yield PipelineEvent(
             type=EventType.RUN_STARTED,
             run_id=run_id,
             message=f"Research run started. Task: {cfg.task_description[:120]}",
+            current_provider=initial_provider,
+            current_model=initial_model,
         )
 
         best_score = 0.0
 
         for iteration in range(1, cfg.max_iterations + 1):
+            # Check if paused and wait if needed
+            if self.pause_check:
+                await self.pause_check()
             yield PipelineEvent(
                 type=EventType.ITERATION_STARTED,
                 run_id=run_id,
                 iteration=iteration,
                 message=f"Starting iteration {iteration}/{cfg.max_iterations}",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Memory: sample prior nodes ---
@@ -449,6 +478,8 @@ class Pipeline:
                 iteration=iteration,
                 total_nodes=len(self.db),
                 message=f"Sampled {len(context_nodes)} context nodes from {len(self.db)} total",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Memory: retrieve cognition items ---
@@ -464,6 +495,8 @@ class Pipeline:
                 run_id=run_id,
                 iteration=iteration,
                 message=f"Retrieved {len(cognition_items)} cognition items",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Researcher ---
@@ -473,6 +506,8 @@ class Pipeline:
                 iteration=iteration,
                 agent_type="researcher",
                 message="Researcher generating next candidate…",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             base_code = context_nodes[0].code if (cfg.diff_based_evolution and context_nodes) else None
@@ -487,6 +522,21 @@ class Pipeline:
                         base_code=base_code,
                     ),
                 )
+                # Check if provider switched
+                if self.llm.switched_provider:
+                    previous_provider = self.llm.previous_provider
+                    previous_model = previous_provider.model if previous_provider else ""
+                    previous_provider_name = previous_provider.model.split("/")[0] if (previous_provider and "/" in previous_provider.model) else (previous_provider.model if previous_provider else "")
+                    yield PipelineEvent(
+                        type=EventType.PROVIDER_SWITCHED,
+                        run_id=run_id,
+                        iteration=iteration,
+                        message=f"Switched LLM provider to {self.llm.current_provider_name}",
+                        current_provider=self.llm.current_provider_name,
+                        current_model=self.llm.current_model,
+                        previous_provider=previous_provider_name,
+                        previous_model=previous_model,
+                    )
             except Exception as exc:
                 logger.error(f"[Pipeline] Researcher failed at iteration {iteration}: {exc}")
                 yield PipelineEvent(
@@ -495,6 +545,8 @@ class Pipeline:
                     iteration=iteration,
                     agent_type="researcher",
                     message=f"Researcher error: {type(exc).__name__}: {exc}",
+                    current_provider=self.llm.current_provider_name,
+                    current_model=self.llm.current_model,
                 )
                 continue
 
@@ -514,6 +566,8 @@ class Pipeline:
                 node_motivation=node.motivation,
                 node_code_preview=node.code[:300],
                 message=f"Researcher generated: {node.name}",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Engineer ---
@@ -525,6 +579,8 @@ class Pipeline:
                 iteration=iteration,
                 agent_type="engineer",
                 message="Engineer evaluating candidate…",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             try:
@@ -534,6 +590,7 @@ class Pipeline:
                         code=node.code,
                         work_dir=work_dir,
                         eval_script=cfg.eval_script,
+                        eval_code=cfg.eval_code,
                         timeout=cfg.eval_timeout,
                     ),
                 )
@@ -564,6 +621,8 @@ class Pipeline:
                 eval_runtime=engineer_result.get("runtime", 0.0),
                 eval_stdout_preview=engineer_result.get("stdout", "")[:300],
                 message=f"Engineer: score={node.score:.4f}, success={engineer_result.get('success', False)}",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Analyzer ---
@@ -573,6 +632,8 @@ class Pipeline:
                 iteration=iteration,
                 agent_type="analyzer",
                 message="Analyzer interpreting results…",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             best_node_for_comparison = self.db.get_best()
@@ -587,6 +648,21 @@ class Pipeline:
                         best_node=best_node_for_comparison,
                     ),
                 )
+                # Check if provider switched
+                if self.llm.switched_provider:
+                    previous_provider = self.llm.previous_provider
+                    previous_model = previous_provider.model if previous_provider else ""
+                    previous_provider_name = previous_provider.model.split("/")[0] if (previous_provider and "/" in previous_provider.model) else (previous_provider.model if previous_provider else "")
+                    yield PipelineEvent(
+                        type=EventType.PROVIDER_SWITCHED,
+                        run_id=run_id,
+                        iteration=iteration,
+                        message=f"Switched LLM provider to {self.llm.current_provider_name}",
+                        current_provider=self.llm.current_provider_name,
+                        current_model=self.llm.current_model,
+                        previous_provider=previous_provider_name,
+                        previous_model=previous_model,
+                    )
             except Exception as exc:
                 logger.error(f"[Pipeline] Analyzer failed at iteration {iteration}: {exc}")
                 analysis = f"Analysis failed: {exc}"
@@ -600,6 +676,8 @@ class Pipeline:
                 agent_type="analyzer",
                 analysis=analysis,
                 message="Analyzer complete",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
             # --- Persist node ---
@@ -632,6 +710,8 @@ class Pipeline:
                 eval_score=node.score,
                 eval_success=engineer_result.get("success", False),
                 message=f"Iteration {iteration} complete. Best score so far: {best_score:.4f}",
+                current_provider=self.llm.current_provider_name,
+                current_model=self.llm.current_model,
             )
 
         # --- Run complete ---
@@ -649,4 +729,6 @@ class Pipeline:
                 "model": cfg.model,
             },
             message=f"Research run complete. Best score: {best_score:.4f}",
+            current_provider=self.llm.current_provider_name,
+            current_model=self.llm.current_model,
         )

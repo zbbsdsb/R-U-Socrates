@@ -1,22 +1,90 @@
-/**
- * R U Socrates — Electron Main Process
- *
- * Desktop app shell:
- *  1. Starts the FastAPI backend as a subprocess (services/api/main:app)
- *  2. Starts the Next.js dev server as a subprocess (apps/web)
- *  3. Opens the app window pointing at localhost:3000
- */
-
-const { app, BrowserWindow, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, Tray, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
+const { autoUpdater } = require("electron-updater");
 
 const NEXT_PORT = 3000;
 const BACKEND_PORT = 8000;
 
 let mainWindow = null;
+let tray = null;
 let backendProc = null;
 let nextProc = null;
+
+// ─── System Tray ───────────────────────────────────────────────────────────────
+function createTray() {
+  const iconPath = path.join(__dirname, "..", "build", "icon.png");
+  
+  tray = new Tray(iconPath);
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Show App", click: () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }},
+    { label: "Check for Updates", click: () => autoUpdater.checkForUpdatesAndNotify() },
+    { type: "separator" },
+    { label: "Quit", click: () => {
+      if (nextProc) nextProc.kill();
+      if (backendProc) backendProc.kill();
+      app.quit();
+    }}
+  ]);
+
+  tray.setToolTip("R U Socrates");
+  tray.setContextMenu(contextMenu);
+  
+  tray.on("double-click", () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+// ─── Auto Updater ─────────────────────────────────────────────────────────────
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("checking-for-update", () => {
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", "Checking for updates...");
+    }
+  });
+
+  autoUpdater.on("update-available", () => {
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", "Update available, downloading...");
+    }
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", "No updates available");
+    }
+  });
+
+  autoUpdater.on("error", (err) => {
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", `Update error: ${err.message}`);
+    }
+  });
+
+  autoUpdater.on("download-progress", (progressObj) => {
+    const message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", message);
+    }
+  });
+
+  autoUpdater.on("update-downloaded", () => {
+    if (mainWindow) {
+      mainWindow.webContents.send("update-status", "Update downloaded, restart to install");
+    }
+  });
+}
 
 // ─── Start Next.js dev server ────────────────────────────────────────────────
 function startNext() {
@@ -33,7 +101,6 @@ function startNext() {
     nextProc.stdout.on("data", (d) => {
       const line = d.toString().trim();
       process.stdout.write(`[Next] ${line}\n`);
-      // Next.js is ready when it prints "Ready in"
       if (line.includes("Ready in") || line.includes("compiled")) {
         resolve();
       }
@@ -48,7 +115,6 @@ function startNext() {
       resolve();
     });
 
-    // Timeout fallback — proceed after 30s even if ready msg not seen
     setTimeout(resolve, 30000);
   });
 }
@@ -108,40 +174,47 @@ function createWindow() {
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("closed", () => { mainWindow = null; });
+  
+  mainWindow.on("minimize", (e) => {
+    e.preventDefault();
+    mainWindow.hide();
+  });
 }
 
 // ─── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   console.log("[App] Starting R U Socrates…");
 
-  // Start backend first (no deps)
+  createTray();
+  setupAutoUpdater();
+  
   startBackend();
-
-  // Start Next.js and wait for it to be ready
   await startNext();
 
-  // Open the window
   createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on("window-all-closed", () => {
-  if (nextProc)    nextProc.kill();
+  if (nextProc) nextProc.kill();
   if (backendProc) backendProc.kill();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
-  if (nextProc)    nextProc.kill();
+  if (nextProc) nextProc.kill();
   if (backendProc) backendProc.kill();
 });
 
-ipcMain.on("minimize", () => mainWindow?.minimize());
+ipcMain.on("minimize", () => mainWindow?.hide());
 ipcMain.on("maximize", () => {
   if (mainWindow?.isMaximized()) mainWindow.unmaximize();
   else mainWindow?.maximize();
 });
 ipcMain.on("close", () => mainWindow?.close());
+ipcMain.on("check-for-updates", () => autoUpdater.checkForUpdatesAndNotify());

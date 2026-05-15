@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { useReasoningStore, type IterationData } from "@/stores/reasoningStore";
 
 interface TreeNode {
@@ -162,7 +162,7 @@ interface NodeDetailsProps {
   onClose: () => void;
 }
 
-function NodeDetails({ iteration, iterations, onClose }: NodeDetailsProps) {
+const NodeDetails = memo(function NodeDetails({ iteration, iterations, onClose }: NodeDetailsProps) {
   const iter = iterations.find((i) => i.iteration === iteration);
   if (!iter) return null;
 
@@ -210,13 +210,113 @@ function NodeDetails({ iteration, iterations, onClose }: NodeDetailsProps) {
       </div>
     </div>
   );
+});
+
+interface ConnectionProps {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  status: string;
+  index: number;
 }
+
+const Connection = memo(function Connection({ x1, y1, x2, y2, status, index }: ConnectionProps) {
+  const colors = NODE_COLORS[status as keyof typeof NODE_COLORS] || NODE_COLORS.pruned;
+  const midY = (y1 + y2) / 2;
+  return (
+    <g key={index}>
+      <path
+        d={`M ${x1 + NODE_WIDTH / 2} ${y1} 
+            C ${x1 + NODE_WIDTH / 2} ${midY}, 
+              ${x2 + NODE_WIDTH / 2} ${midY}, 
+              ${x2 + NODE_WIDTH / 2} ${y2}`}
+        fill="none"
+        stroke={colors.border}
+        strokeWidth={status === "best" ? 2 : 1}
+        strokeOpacity={status === "best" ? 0.8 : 0.4}
+      />
+    </g>
+  );
+});
+
+interface TreeNodeComponentProps {
+  node: TreeLayoutNode;
+  onClick: (iteration: number) => void;
+}
+
+const TreeNodeComponent = memo(function TreeNodeComponent({ node, onClick }: TreeNodeComponentProps) {
+  const colors = NODE_COLORS[node.status];
+  const filterId = node.status === "alive" ? "url(#glow-cyan)" : node.status === "best" ? "url(#glow-emerald)" : "";
+
+  return (
+    <g
+      key={node.id}
+      transform={`translate(${node.x - NODE_WIDTH / 2}, ${node.y})`}
+      onClick={() => onClick(node.iteration)}
+      className="cursor-pointer"
+    >
+      <rect
+        width={NODE_WIDTH}
+        height={NODE_HEIGHT}
+        rx={12}
+        fill={colors.bg}
+        stroke={colors.border}
+        strokeWidth={node.status === "best" ? 2 : 1}
+        filter={filterId}
+        className="transition-all duration-200 hover:brightness-125"
+      />
+
+      <text
+        x={NODE_WIDTH / 2}
+        y={NODE_HEIGHT / 2 - 6}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill={colors.text}
+        className="text-xs font-semibold"
+      >
+        Iter {node.iteration}
+      </text>
+
+      {node.score > 0 && (
+        <text
+          x={NODE_WIDTH / 2}
+          y={NODE_HEIGHT / 2 + 10}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={colors.text}
+          opacity={0.7}
+          className="text-[10px] font-mono"
+        >
+          {(node.score * 100).toFixed(1)}%
+        </text>
+      )}
+
+      {node.status === "best" && (
+        <g transform={`translate(${NODE_WIDTH - 14}, -14)`}>
+          <circle r={10} fill="#10b981" filter="url(#glow-emerald)" />
+          <text
+            x={0}
+            y={1}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="white"
+            fontSize={10}
+            fontWeight="bold"
+          >
+            ★
+          </text>
+        </g>
+      )}
+    </g>
+  );
+});
 
 export function ReasoningTree() {
   const { getIterations, activeIteration, runStatus } = useReasoningStore();
   const [selectedNode, setSelectedNode] = useState<number | null>(null);
 
-  const iterations = getIterations();
+  const iterations = useMemo(() => getIterations(), [getIterations]);
 
   const treeNodes = useMemo(
     () => buildTreeData(iterations, activeIteration),
@@ -234,12 +334,29 @@ export function ReasoningTree() {
     return conns;
   }, [layoutNodes]);
 
+  const svgWidth = useMemo(
+    () => Math.max(400, iterations.length * (NODE_WIDTH + HORIZONTAL_GAP) + 100),
+    [iterations.length]
+  );
+
+  const svgHeight = useMemo(
+    () => 200 + iterations.length * (NODE_HEIGHT + VERTICAL_GAP) / 3,
+    [iterations.length]
+  );
+
+  const handleNodeClick = useMemo(
+    () => (iteration: number) => setSelectedNode(iteration),
+    []
+  );
+
+  const handleCloseDetails = useMemo(
+    () => () => setSelectedNode(null),
+    []
+  );
+
   if (iterations.length === 0 || runStatus === "idle") {
     return null;
   }
-
-  const svgWidth = Math.max(400, iterations.length * (NODE_WIDTH + HORIZONTAL_GAP) + 100);
-  const svgHeight = 200 + iterations.length * (NODE_HEIGHT + VERTICAL_GAP) / 3;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
@@ -285,91 +402,21 @@ export function ReasoningTree() {
             </filter>
           </defs>
 
-          {connections.map((conn, i) => {
-            const colors = NODE_COLORS[conn.status as keyof typeof NODE_COLORS] || NODE_COLORS.pruned;
-            const midY = (conn.y1 + conn.y2) / 2;
-            return (
-              <g key={i}>
-                <path
-                  d={`M ${conn.x1 + NODE_WIDTH / 2} ${conn.y1} 
-                      C ${conn.x1 + NODE_WIDTH / 2} ${midY}, 
-                        ${conn.x2 + NODE_WIDTH / 2} ${midY}, 
-                        ${conn.x2 + NODE_WIDTH / 2} ${conn.y2}`}
-                  fill="none"
-                  stroke={colors.border}
-                  strokeWidth={conn.status === "best" ? 2 : 1}
-                  strokeOpacity={conn.status === "best" ? 0.8 : 0.4}
-                />
-              </g>
-            );
-          })}
+          {connections.map((conn, i) => (
+            <Connection
+              key={i}
+              x1={conn.x1}
+              y1={conn.y1}
+              x2={conn.x2}
+              y2={conn.y2}
+              status={conn.status}
+              index={i}
+            />
+          ))}
 
-          {layoutNodes.map((node) => {
-            const colors = NODE_COLORS[node.status];
-            const filterId = node.status === "alive" ? "url(#glow-cyan)" : node.status === "best" ? "url(#glow-emerald)" : "";
-
-            return (
-              <g
-                key={node.id}
-                transform={`translate(${node.x - NODE_WIDTH / 2}, ${node.y})`}
-                onClick={() => setSelectedNode(node.iteration)}
-                className="cursor-pointer"
-              >
-                <rect
-                  width={NODE_WIDTH}
-                  height={NODE_HEIGHT}
-                  rx={12}
-                  fill={colors.bg}
-                  stroke={colors.border}
-                  strokeWidth={node.status === "best" ? 2 : 1}
-                  filter={filterId}
-                  className="transition-all duration-200 hover:brightness-125"
-                />
-
-                <text
-                  x={NODE_WIDTH / 2}
-                  y={NODE_HEIGHT / 2 - 6}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill={colors.text}
-                  className="text-xs font-semibold"
-                >
-                  Iter {node.iteration}
-                </text>
-
-                {node.score > 0 && (
-                  <text
-                    x={NODE_WIDTH / 2}
-                    y={NODE_HEIGHT / 2 + 10}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill={colors.text}
-                    opacity={0.7}
-                    className="text-[10px] font-mono"
-                  >
-                    {(node.score * 100).toFixed(1)}%
-                  </text>
-                )}
-
-                {node.status === "best" && (
-                  <g transform={`translate(${NODE_WIDTH - 14}, -14)`}>
-                    <circle r={10} fill="#10b981" filter="url(#glow-emerald)" />
-                    <text
-                      x={0}
-                      y={1}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="white"
-                      fontSize={10}
-                      fontWeight="bold"
-                    >
-                      ★
-                    </text>
-                  </g>
-                )}
-              </g>
-            );
-          })}
+          {layoutNodes.map((node) => (
+            <TreeNodeComponent key={node.id} node={node} onClick={handleNodeClick} />
+          ))}
         </svg>
       </div>
 
@@ -377,7 +424,7 @@ export function ReasoningTree() {
         <NodeDetails
           iteration={selectedNode}
           iterations={iterations}
-          onClose={() => setSelectedNode(null)}
+          onClose={handleCloseDetails}
         />
       )}
     </div>

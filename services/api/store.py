@@ -27,6 +27,9 @@ class RunEventStore:
         self._events: List[Dict[str, Any]] = []
         self._subscribers: List[asyncio.Queue] = []
         self._closed = False
+        self._paused = False
+        self._pause_event = asyncio.Event()
+        self._pause_event.set()  # Initially not paused
 
     @classmethod
     def get(cls, run_id: str) -> "RunEventStore":
@@ -74,9 +77,38 @@ class RunEventStore:
         for event in self._events:
             yield event
 
+    def is_paused(self) -> bool:
+        """Check if the run is currently paused."""
+        return self._paused
+
+    async def pause(self) -> None:
+        """Pause the run."""
+        self._paused = True
+        self._pause_event.clear()
+        await self.publish({
+            "type": "run_paused",
+            "run_id": self.run_id,
+            "message": "Run has been paused"
+        })
+
+    async def resume(self) -> None:
+        """Resume the run."""
+        self._paused = False
+        self._pause_event.set()
+        await self.publish({
+            "type": "run_resumed",
+            "run_id": self.run_id,
+            "message": "Run has been resumed"
+        })
+
+    async def wait_until_resumed(self) -> None:
+        """Wait until the run is resumed (blocks if paused)."""
+        await self._pause_event.wait()
+
     async def close(self) -> None:
         """Mark the store as closed and notify all subscribers."""
         self._closed = True
+        self._pause_event.set()  # Unblock any waiting tasks
         for q in list(self._subscribers):
             try:
                 q.put_nowait({"type": "stream_closed"})

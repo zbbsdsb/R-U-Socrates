@@ -26,7 +26,13 @@ export type TemplateCategory =
   | "architecture_design"
   | "algorithm_improvement"
   | "bug_fixing"
-  | "general";
+  | "general"
+  | "python_helper"
+  | "data_analysis"
+  | "code_review"
+  | "research_paper"
+  | "creative_writing"
+  | "technical_writing";
 
 export type CognitionType =
   | "paper"

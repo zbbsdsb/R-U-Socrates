@@ -15,8 +15,10 @@ from pydantic import BaseModel, Field
 class TaskCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., min_length=10)
-    model: str = Field(default="qwen-plus")
+    models: Optional[List[str]] = Field(default=None)  # List of models with fallback order
+    model: str = Field(default="qwen-plus")  # Single model (backward compatibility)
     max_iterations: int = Field(default=10, ge=1, le=100)
+    eval_code: Optional[str] = Field(default=None)
 
 
 class TaskResponse(BaseModel):
@@ -115,3 +117,7 @@ class SSEEvent(BaseModel):
     total_nodes: int = 0
     best_node: Optional[Dict[str, Any]] = None
     stats: Optional[Dict[str, Any]] = None
+    current_provider: str = ""
+    current_model: str = ""
+    previous_provider: str = ""
+    previous_model: str = ""

@@ -16,8 +16,10 @@ import { getApiBase } from "@/stores/settingsStore";
 export interface TaskPayload {
   name: string;
   description: string;
+  models?: string[];
   model?: string;
   max_iterations?: number;
+  eval_code?: string;
 }
 
 export interface ApiTask {
@@ -78,6 +80,10 @@ export interface PipelineEvent {
   total_nodes: number;
   best_node: Record<string, unknown> | null;
   stats: Record<string, unknown> | null;
+  current_provider: string;
+  current_model: string;
+  previous_provider: string;
+  previous_model: string;
 }
 
 // ─── Fetch helper ─────────────────────────────────────────────────────────────
@@ -114,8 +120,10 @@ export async function createTask(payload: TaskPayload): Promise<ApiTask> {
     body: JSON.stringify({
       name: payload.name,
       description: payload.description,
+      models: payload.models,
       model: payload.model ?? "qwen-plus",   // matches backend schema default
       max_iterations: payload.max_iterations ?? 10,
+      eval_code: payload.eval_code,
     }),
   });
 }
@@ -126,6 +134,14 @@ export async function listRuns(taskId: string): Promise<ApiRun[]> {
 
 export async function cancelTask(taskId: string): Promise<void> {
   await apiFetch<void>(`/api/tasks/${taskId}/cancel`, { method: "POST" });
+}
+
+export async function pauseTask(taskId: string): Promise<void> {
+  await apiFetch<void>(`/api/tasks/${taskId}/pause`, { method: "POST" });
+}
+
+export async function resumeTask(taskId: string): Promise<void> {
+  await apiFetch<void>(`/api/tasks/${taskId}/resume`, { method: "POST" });
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

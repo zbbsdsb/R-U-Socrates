@@ -110,6 +110,8 @@ class EventType(str, Enum):
 
     # Lifecycle
     RUN_STARTED = "run_started"
+    RUN_PAUSED = "run_paused"
+    RUN_RESUMED = "run_resumed"
     RUN_COMPLETE = "run_complete"
     RUN_FAILED = "run_failed"
 
@@ -135,6 +137,9 @@ class EventType(str, Enum):
     # Memory / cognition
     MEMORY_SAMPLED = "memory_sampled"
     COGNITION_RETRIEVED = "cognition_retrieved"
+
+    # LLM Provider
+    PROVIDER_SWITCHED = "provider_switched"
 
     # Informational
     LOG = "log"
@@ -186,6 +191,12 @@ class PipelineEvent:
     best_node: Optional[Dict[str, Any]] = None
     stats: Optional[Dict[str, Any]] = None
 
+    # LLM Provider info
+    current_provider: str = ""
+    current_model: str = ""
+    previous_provider: str = ""
+    previous_model: str = ""
+
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now().isoformat()
@@ -212,6 +223,10 @@ class PipelineEvent:
             "total_nodes": self.total_nodes,
             "best_node": self.best_node,
             "stats": self.stats,
+            "current_provider": self.current_provider,
+            "current_model": self.current_model,
+            "previous_provider": self.previous_provider,
+            "previous_model": self.previous_model,
         }
 
 
@@ -231,7 +246,8 @@ class RunConfig:
     task_description: str
 
     # LLM
-    model: str = "gpt-4o-mini"          # LiteLLM model string
+    models: Optional[List[str]] = None  # List of LiteLLM model strings (fallback order)
+    model: str = "gpt-4o-mini"          # LiteLLM model string (backward compatibility)
     temperature: float = 0.7
     max_tokens: int = 4096
 
@@ -241,6 +257,7 @@ class RunConfig:
 
     # Evaluation
     eval_script: Optional[str] = None   # path to evaluator script; None = skip eval
+    eval_code: Optional[str] = None     # inline evaluator code; None = use eval_script
     eval_timeout: int = 300             # seconds
 
     # Memory
@@ -255,12 +272,14 @@ class RunConfig:
         return {
             "run_id": self.run_id,
             "task_description": self.task_description,
+            "models": self.models,
             "model": self.model,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "max_iterations": self.max_iterations,
             "sample_n": self.sample_n,
             "eval_script": self.eval_script,
+            "eval_code": self.eval_code,
             "eval_timeout": self.eval_timeout,
             "embedding_model": self.embedding_model,
             "data_dir": self.data_dir,

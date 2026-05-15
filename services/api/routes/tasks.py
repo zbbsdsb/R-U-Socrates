@@ -86,9 +86,11 @@ async def _run_pipeline(task_id: str, run_id: str, payload: TaskCreate):
     config = RunConfig(
         run_id=run_id,
         task_description=payload.description,
+        models=payload.models,
         model=payload.model,
         max_iterations=payload.max_iterations,
-        eval_script=evaluator_path,
+        eval_script=evaluator_path if not payload.eval_code else None,
+        eval_code=payload.eval_code,
     )
 
     store = RunEventStore.get(run_id)
@@ -97,7 +99,10 @@ async def _run_pipeline(task_id: str, run_id: str, payload: TaskCreate):
     # connection churn; safe because background task runs in a single thread).
     db = SessionLocal()
     try:
-        pipeline = Pipeline(config)
+        async def pause_check():
+            await store.wait_until_resumed()
+        
+        pipeline = Pipeline(config, pause_check=pause_check)
         async for event in pipeline.run():
             event_dict = event.to_sse_dict()
             await store.publish(event_dict)
@@ -237,16 +242,16 @@ def cancel_task(task_id: str, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if task.status not in ("running",):
+    if task.status not in ("running", "paused"):
         raise HTTPException(
             status_code=409,
-            detail=f"Task is not running (current status: {task.status})",
+            detail=f"Task is not running or paused (current status: {task.status})",
         )
 
-    # Mark the latest running run as cancelled
+    # Mark the latest running/paused run as cancelled
     run = (
         db.query(Run)
-        .filter(Run.task_id == task_id, Run.status == "running")
+        .filter(Run.task_id == task_id, Run.status.in_(("running", "paused")))
         .order_by(Run.started_at.desc())
         .first()
     )
@@ -271,6 +276,78 @@ def cancel_task(task_id: str, db: Session = Depends(get_db)):
     db.commit()
 
     return {"status": "cancelled", "task_id": task_id}
+
+
+@router.post("/{task_id}/pause", status_code=200)
+def pause_task(task_id: str, db: Session = Depends(get_db)):
+    """Pause the active run for a task."""
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "running":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Task is not running (current status: {task.status})",
+        )
+
+    # Mark the latest running run as paused
+    run = (
+        db.query(Run)
+        .filter(Run.task_id == task_id, Run.status == "running")
+        .order_by(Run.started_at.desc())
+        .first()
+    )
+    if run:
+        run.status = "paused"
+        task.status = "paused"
+        task.updated_at = datetime.utcnow()
+        db.commit()
+        
+        store = RunEventStore.get(run.id)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(store.pause())
+        except RuntimeError:
+            asyncio.run(store.pause())
+
+    return {"status": "paused", "task_id": task_id}
+
+
+@router.post("/{task_id}/resume", status_code=200)
+def resume_task(task_id: str, db: Session = Depends(get_db)):
+    """Resume the paused run for a task."""
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "paused":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Task is not paused (current status: {task.status})",
+        )
+
+    # Mark the latest paused run as running
+    run = (
+        db.query(Run)
+        .filter(Run.task_id == task_id, Run.status == "paused")
+        .order_by(Run.started_at.desc())
+        .first()
+    )
+    if run:
+        run.status = "running"
+        task.status = "running"
+        task.updated_at = datetime.utcnow()
+        db.commit()
+        
+        store = RunEventStore.get(run.id)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(store.resume())
+        except RuntimeError:
+            asyncio.run(store.resume())
+
+    return {"status": "running", "task_id": task_id}
 
 
 @router.get("/{task_id}/runs", response_model=list[RunResponse])

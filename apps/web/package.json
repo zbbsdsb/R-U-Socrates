@@ -4,14 +4,19 @@
   "description": "R U Socrates - AI research engine with transparent reasoning",
   "author": "Oasis <zbbsdsb@gmail.com>",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "build:electron": "npm run build && electron-builder --win",
-    "build:electron:dir": "npm run build && electron-builder --win --dir"
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "build:electron": "npm run build && electron-builder",
+    "build:electron:win": "npm run build && electron-builder --win",
+    "build:electron:mac": "npm run build && electron-builder --mac",
+    "build:electron:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
@@ -20,6 +25,7 @@
     "axios": "^1.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "electron-updater": "^6.1.8",
     "lucide-react": "^0.400.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
@@ -36,13 +42,14 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.0",
-    "electron": "^31.0.0",
+    "concurrently": "^8.2.2",
     "electron": "31.0.0",
     "electron-builder": "^24.13.3",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "wait-on": "^7.2.0"
   }
 }

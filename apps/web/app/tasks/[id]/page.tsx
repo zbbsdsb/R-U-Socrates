@@ -4,8 +4,8 @@ export const dynamicParams = true;
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, StopCircle, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
-import { getTask, cancelTask, type ApiTask } from "@/services/taskService";
+import { ChevronRight, StopCircle, CheckCircle2, XCircle, Loader2, Clock, Pause, Play } from "lucide-react";
+import { getTask, cancelTask, pauseTask, resumeTask, type ApiTask } from "@/services/taskService";
 import { useReasoningStore } from "@/stores/reasoningStore";
 import { ReasoningFeed } from "@/components/reasoning/ReasoningFeed";
 import { ReasoningTree } from "@/components/reasoning/ReasoningTree";
@@ -26,14 +26,16 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null);
 
   const {
-    runStatus,
-    bestScore,
-    totalNodes,
-    iterations,
-    subscribe,
-    unsubscribe,
-    reset,
-  } = useReasoningStore();
+        runStatus,
+        bestScore,
+        totalNodes,
+        iterations,
+        subscribe,
+        unsubscribe,
+        reset,
+        currentProvider,
+        currentModel,
+    } = useReasoningStore();
 
   const iterationCount = iterations.size;
   const prevBestScore = 0; // simplified — ScoreCard handles this
@@ -58,6 +60,36 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
       getTask(taskId).then(setTask).catch(() => {});
     }
   }, [runStatus]);
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+
+      if (isTyping) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (runStatus === "running") {
+          pauseTask(taskId).catch(() => {});
+        } else if (runStatus === "paused") {
+          resumeTask(taskId).catch(() => {});
+        }
+      } else if (e.code === "Escape") {
+        e.preventDefault();
+        cancelTask(taskId)
+          .then(() => unsubscribe())
+          .catch(() => {});
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [runStatus, taskId]);
 
   // ─── Render states ───────────────────────────────────────────────────────────
 
@@ -120,6 +152,12 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
                 Running
               </span>
             )}
+            {runStatus === "paused" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400/40 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
+                <Pause className="h-3.5 w-3.5" />
+                Paused
+              </span>
+            )}
             {isComplete && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -132,7 +170,7 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
                 Failed
               </span>
             )}
-            {!isRunning && !isComplete && !isFailed && (
+            {!isRunning && runStatus !== "paused" && !isComplete && !isFailed && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
                 {task.status}
@@ -141,7 +179,8 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
 
             {/* Meta labels */}
             <div className="text-right text-xs text-muted-foreground space-y-0.5">
-              <div>Model: <span className="font-medium text-foreground">{task.model}</span></div>
+              <div>Provider: <span className="font-medium text-foreground">{currentProvider || task.model.split("/")[0]}</span></div>
+              <div>Model: <span className="font-medium text-foreground">{currentModel || task.model}</span></div>
               <div>Max iterations: <span className="font-medium text-foreground">{task.max_iterations}</span></div>
             </div>
           </div>
@@ -186,23 +225,84 @@ export default function TaskDetailPage({ params }: { params: { id: string } }) {
             ))}
           </div>
 
-          {/* Stop run button */}
+          {/* Pause/Resume/Stop buttons */}
           {isRunning && (
-            <Button
-              variant="outline"
-              className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/40 dark:hover:bg-orange-950/20"
-              onClick={async () => {
-                try {
-                  await cancelTask(taskId);
-                  unsubscribe();
-                } catch {
-                  // silently ignore
-                }
-              }}
-            >
-              <StopCircle className="h-4 w-4" />
-              Stop Run
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-yellow-600 border-yellow-200 hover:bg-yellow-50 dark:border-yellow-900/40 dark:hover:bg-yellow-950/20"
+                onClick={async () => {
+                  try {
+                    await pauseTask(taskId);
+                  } catch {
+                    // silently ignore
+                  }
+                }}
+              >
+                <Pause className="h-4 w-4" />
+                Pause
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">Space</span>
+                </kbd>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/40 dark:hover:bg-orange-950/20"
+                onClick={async () => {
+                  try {
+                    await cancelTask(taskId);
+                    unsubscribe();
+                  } catch {
+                    // silently ignore
+                  }
+                }}
+              >
+                <StopCircle className="h-4 w-4" />
+                Stop Run
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">Esc</span>
+                </kbd>
+              </Button>
+            </>
+          )}
+          {runStatus === "paused" && (
+            <>
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-green-600 border-green-200 hover:bg-green-50 dark:border-green-900/40 dark:hover:bg-green-950/20"
+                onClick={async () => {
+                  try {
+                    await resumeTask(taskId);
+                  } catch {
+                    // silently ignore
+                  }
+                }}
+              >
+                <Play className="h-4 w-4" />
+                Resume
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">Space</span>
+                </kbd>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/40 dark:hover:bg-orange-950/20"
+                onClick={async () => {
+                  try {
+                    await cancelTask(taskId);
+                    unsubscribe();
+                  } catch {
+                    // silently ignore
+                  }
+                }}
+              >
+                <StopCircle className="h-4 w-4" />
+                Stop Run
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">Esc</span>
+                </kbd>
+              </Button>
+            </>
           )}
         </div>
 
