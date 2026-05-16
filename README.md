@@ -2,6 +2,8 @@
 
 > **The transparent research engine.** See how AI thinks — every step, every decision.
 
+![Social Preview](social-preview.png)
+
 R U Socrates makes the AI research process visible. Instead of getting a black-box answer, you watch a loop of specialized agents — Researcher, Engineer, Analyzer — iterating in real time. Every hypothesis, every evaluation, every insight is streamed to your screen.
 
 ---
